@@ -1,0 +1,1 @@
+List index out of range: if 'arw' in self.images[idx] - folder_images_dataset.py
