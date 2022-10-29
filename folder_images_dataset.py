@@ -7,6 +7,8 @@ import rawpy
 from torch import nn 
 from torch.utils.data import Dataset
 
+import traceback
+
 class FolderImages(Dataset):
     
     def __init__(self, folder, img_size = 512):
@@ -31,12 +33,13 @@ class FolderImages(Dataset):
             img = cv2.resize(img, (self.img_size, self.img_size))
         
         except Exception:
+            traceback.print_exc()
             return self.__getitem__(idx+1)
 
         return img
 
     
-data_dir = "/home/hans/Documents/data/"
+data_dir = "/media/hans/T7/data/" # "/home/hans/Documents/data/"
 folder_dirs = ["Machine learning training set/*/original image/",
                "deepfish/data/",
                "Cichlid Picture Collection REVISED (UPDATED)-20220403T172132Z-001/Cichlid Picture Collection REVISED (UPDATED)/Annotated Photos/",

@@ -1,0 +1,14 @@
+{
+	"datasets": [ 
+	{"folder": "Cichlid Picture Collection REVISED (UPDATED)/Annotated Photos/",
+	 "name": "alvaradolab",
+	 "type": "polygons"
+	},
+	
+	{"folder": "deepfish/zip/",
+	 "name": "deepfish",
+	 "type": "polygons"
+	}
+	],
+	"folder_path": "/home/hans/Music/data/"
+}

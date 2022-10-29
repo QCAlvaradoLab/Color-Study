@@ -82,7 +82,7 @@ class HSVColorClassifier(object):
 
         print ('3', hsv_coord.shape, np.prod(hsv_coord.shape) // 3)
         print ('4', grid_h, grid_w, np.prod(hsv_coord.shape), grid_h - pad//2, grid_w - pad//2)
-        color_grid[:grid_h - (pad//2), :grid_w - (pad//2), :] = hsv_coord.reshape((grid_h, grid_w, 3))
+        color_grid[:grid_h, :grid_w, :] = hsv_coord.reshape((grid_h, grid_w, 3))
 
         bool_fn = lambda begin_range, end_range: cv2.inRange(
                     np.array(hsv_coord).astype(np.uint8), np.array(begin_range), np.array(end_range))

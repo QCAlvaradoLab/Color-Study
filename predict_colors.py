@@ -37,6 +37,7 @@ class ColorDistributions(object):
                 group_colors = img[groups]
                 
                 group_labels = self.hsv_classifier.get_color(group_colors)
+                 
                 print (groups.shape, clusters[1])
 
 
@@ -49,7 +50,8 @@ if __name__ == "__main__":
     color_dist = ColorDistributions(hsv_classifier, gmm_colors) 
     
     # color_dist.predict_dataset_colors()
-
+    
+    print (folder_datasets, [len(x) for x in folder_datasets])
     for dataset in folder_datasets:
         for data in dataset:
             
