@@ -1,1 +1,3 @@
 List index out of range: if 'arw' in self.images[idx] - folder_images_dataset.py
+	REASON: Dataset ID found edge case on increment
+	NEED: Younger coder to debug with more brain power than Indian Hans!
