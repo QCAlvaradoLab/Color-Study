@@ -34,7 +34,7 @@ class FolderImages(Dataset):
 
             elif 'gif' in self.images[idx].lower():
                 gif = imageio.mimread(self.images[idx])
-                print("Choosing frame 0/%d from the gif!" % len(gif))
+                print("Choosing frame 1/%d from the gif!" % len(gif))
                 img = cv2.cvtColor(gif[0], cv2.COLOR_RGB2BGR)
 
             else:

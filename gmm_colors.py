@@ -12,7 +12,8 @@ from torch.utils.data import Subset
 
 from sklearn.mixture import GaussianMixture
 
-from folder_images_dataset import FolderImages, folder_datasets
+from folder_images_dataset import FolderImages
+import folder_datasets
 
 class GMMColors(object):
     
@@ -166,13 +167,15 @@ class GMMColors(object):
                 np.load(self.model_path("w")), \
                 np.load(self.model_path("means")), \
                 np.load(self.model_path("covariances"))
-            
+                
             self.gmm_model.fit(np.zeros((self.gmm_components + 1, 3)))
             
             self.gmm_model.weights_ = w
             self.gmm_model.means_ = mu
             self.gmm_model.covariances_ = sigma
-        
+            
+            print ("LOADED MODEL FROM EPOCH %d SUCCESSFULLY!" % iters)
+
         except Exception:
             traceback.print_exc()
             pass
