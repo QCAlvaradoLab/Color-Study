@@ -49,6 +49,14 @@ class FolderImages(Dataset):
                 return self.__getitem__(idx+1)
 
         return img
-   
+
+from resources import folder_dirs
+
+folder_datasets = []
+
+for directory in folder_dirs:
+    for dirs in glob.glob(directory):
+        if os.path.isdir(dirs):
+            folder_datasets.append(FolderImages(dirs))
 
 
