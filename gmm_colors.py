@@ -56,8 +56,8 @@ class GMMColors(object):
         
     def train(self):
         
-        if not os.path.isdir(os.path.join(self.models_dir, "images")):
-            os.makedirs(os.path.join(self.models_dir, "images"))
+        if not os.path.isdir(os.path.join(self.models_dir, "images", str(self.gmm_components))):
+            os.makedirs(os.path.join(self.models_dir, "images", str(self.gmm_components)))
         
         for iters in range(*self.iters_range):
             
@@ -65,10 +65,11 @@ class GMMColors(object):
                 
             cur_index = 0
             
-            dataset_id, start_ptr = 0, 0
-            for idx in range(len(self.images_cumsum)-1):
+            dataset_id = 0
+            
+            for idx in range(len(self.images_cumsum)-1):    
+                
                 if self.start_from > self.images_cumsum[idx+1]:
-                    start_ptr += len(self.datasets[dataset_id])
                     dataset_id += 1
                 else:
                     break
@@ -78,36 +79,47 @@ class GMMColors(object):
                 if d < dataset_id:
                     continue
                 print ("USING DATASET: %d/%d" % (d, len(self.datasets)))
-                
+
                 index = 0
-                   
-                for index, data in enumerate(Subset(dataset, 
-                                                list(range(self.start_from - start_ptr, len(dataset))))):    
+                
+                try:
+                    for index, data in enumerate(Subset(dataset, 
+                                                    list(range(self.start_from - self.images_cumsum[idx], len(dataset))))):    
+                            
+                        img_data = data # self.images[idx]
+                        img, shp = self.get_image_vector(img_data)
                         
-                    img_data = data # self.images[idx]
-                    img, shp = self.get_image_vector(img_data)
+                        saving_condition = (cur_index + index + self.start_from + 1) % self.save_every == 0
+                        if saving_condition:
+                            before_display_img = self.predict_colors(img_data)
 
-                    self.gmm_model.fit(img)
-                    if (cur_index + index + self.start_from + 1) % self.save_every == 0:
+                        self.gmm_model.fit(img)
                         
-                        print ("Saving model at iter: %d ; Epoch : %d/%d" % (
-                                    iters, cur_index + index + self.start_from, self.images_len), end=' ; ')
+                        if saving_condition:
                             
-                        self.save_model(iters, cur_index + index + self.start_from)
+                            print ("Saving model at iter: %d ; Epoch : %d/%d" % (
+                                        iters, cur_index + index + self.start_from, self.images_len), end=' ; ')
+                                
+                            self.save_model(iters, cur_index + index + self.start_from)
+                                
+                            colors = self.predict_colors(img_data)
                             
-                        colors = self.predict_colors(img_data)
-                        
-                        display_img = np.concatenate((img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
-                        cv2.imwrite(os.path.join(self.models_dir, "images", "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
-                                        self.COLORS[colors.astype(np.uint8)])    
-                        cv2.imwrite(os.path.join(self.models_dir, "images", "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
-                                        display_img)    
-                            
-                        # cv2.imshow('f', (colors * 255 / colors.max()).astype(np.uint8))
-                        # cv2.imshow('f', (COLORS[colors.astype(np.uint8)]))
-                        # cv2.imshow('g', img.reshape(shp))
-                        # cv2.waitKey()
-
+                            display_img = np.concatenate((self.COLORS[img_data.astype(np.uint8)], img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
+                            #cv2.imwrite(os.path.join(self.models_dir, "images", "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
+                            #                self.COLORS[colors.astype(np.uint8)])    
+                            cv2.imwrite(os.path.join(self.models_dir, "images", str(self.gmm_components), "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
+                                            display_img)    
+                                
+                            # cv2.imshow('f', (colors * 255 / colors.max()).astype(np.uint8))
+                            # cv2.imshow('f', (COLORS[colors.astype(np.uint8)]))
+                            # cv2.imshow('g', img.reshape(shp))
+                            # cv2.waitKey()
+                
+                except Exception:
+                    traceback.print_exc()
+                    print ("Skipping images %d-%d in dataset %d" % (self.start_from - self.images_cumsum[idx] + index, len(dataset), d))
+                    self.start_from = self.images_cumsum[idx] + len(dataset) 
+                    
                 cur_index += index
             
             self.start_from = 0
@@ -155,7 +167,7 @@ class GMMColors(object):
                 np.load(self.model_path("means")), \
                 np.load(self.model_path("covariances"))
             
-            self.gmm_model.fit(np.zeros((6, 3)))
+            self.gmm_model.fit(np.zeros((self.gmm_components + 1, 3)))
             
             self.gmm_model.weights_ = w
             self.gmm_model.means_ = mu

@@ -15,13 +15,16 @@ class FolderImages(Dataset):
         
         self.img_size = img_size
         self.images = glob.glob(os.path.join(folder, "*"))
+        
+        # Remove annotation files in txt if any!
+        self.images = [x for x in self.images if not x.endswith(".txt")]
 
     def __len__(self):
 
         return len(self.images)
 
     def __getitem__(self, idx):
-        
+           
         try:
             if 'arw' in self.images[idx].lower():
                 raw = rawpy.imread(self.images[idx])
@@ -31,14 +34,16 @@ class FolderImages(Dataset):
                 img = cv2.imread(self.images[idx])
             
             img = cv2.resize(img, (self.img_size, self.img_size))
-        
+            
         except Exception:
             traceback.print_exc()
-            return self.__getitem__(idx+1)
+            print ("Error with image %d/%d: " % (idx, len(self.images)), self.images[idx])
+            if idx + 1 <= len(self.images) - 1:
+                return self.__getitem__(idx+1)
 
         return img
+   
 
-    
 data_dir = "/media/hans/T7/data/" # "/home/hans/Documents/data/"
 folder_dirs = ["Machine learning training set/*/original image/",
                "deepfish/data/",
