@@ -148,4 +148,5 @@ CURRENT DATASETS: (Please feel free to suggest any new ones involving fish (hans
  - Folder: SUIM/SUIM/TEST/images/ #Images: 110
  - Folder: foid/foid_images_v100/images/ #Images: 143818
  - Folder: foid/foid_images_v020/images/ #Images: 86029
-TOTAL: 372932 images!
+
+# TOTAL: 372932 images!
