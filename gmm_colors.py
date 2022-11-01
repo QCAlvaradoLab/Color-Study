@@ -12,8 +12,7 @@ from torch.utils.data import Subset
 
 from sklearn.mixture import GaussianMixture
 
-from folder_images_dataset import FolderImages
-import folder_datasets
+from folder_images_dataset import folder_datasets
 
 class GMMColors(object):
     
@@ -51,6 +50,8 @@ class GMMColors(object):
         
         self.images_len = [len(x) for x in self.datasets] # glob.glob(os.path.join(images_dir, '*'))
         self.images_cumsum = [sum(self.images_len[:idx]) for idx in range(len(self.images_len))] # np.cumsum
+        #print (self.images_cumsum); exit()
+        
         self.images_len = sum(self.images_len)
 
         self.batch_size = batch_size
@@ -77,7 +78,7 @@ class GMMColors(object):
 
             for d, dataset in enumerate(self.datasets):
                 
-                if d < dataset_id or self.start_from < self.images_cumsum[idx]:
+                if d < dataset_id or (d>0 and self.start_from < self.images_cumsum[d-1]):
                     continue
                 print ("USING DATASET: %d/%d" % (d, len(self.datasets)))
 
@@ -91,6 +92,7 @@ class GMMColors(object):
                         
                         saving_condition = (cur_index + index + self.start_from + 1) % self.save_every == 0
                         if saving_condition:
+                            self.save_model(iters, cur_index + index + self.start_from, before=True)
                             before_display_img = self.predict_colors(img_data)
 
                         img, shp = self.get_image_vector(img_data)
@@ -139,6 +141,7 @@ class GMMColors(object):
         
         models = glob.glob(os.path.join(self.models_dir, str(self.gmm_components), '*', 
                                         '*', "gmm_w.npy"))
+        models = [x for x in models if "b/gmm_" not in x]
         
         get_num_list = lambda s: re.split(r'/', s)[6:9]
         
@@ -185,10 +188,10 @@ class GMMColors(object):
         else:
             return 0, 0
     
-    def save_model(self, iters, epoch):
-        
+    def save_model(self, iters, epoch, before=False):
+         
         self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
-                                                str(iters), "gmm_%s.npy" % (x))
+                                                str(iters) + ("" if not before else "b"), "gmm_%s.npy" % (x))
 
         if not os.path.isdir(os.path.dirname(self.model_path(""))):
             os.makedirs(os.path.dirname(self.model_path("")))        

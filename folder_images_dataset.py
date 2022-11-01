@@ -57,6 +57,7 @@ folder_datasets = []
 for directory in folder_dirs:
     for dirs in glob.glob(directory):
         if os.path.isdir(dirs):
-            folder_datasets.append(FolderImages(dirs))
-
+            # Remove all segmentation masks
+            if "/masks/" not in dirs:
+                folder_datasets.append(FolderImages(dirs))
 
