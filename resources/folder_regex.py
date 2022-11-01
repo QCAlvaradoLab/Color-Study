@@ -14,4 +14,3 @@ folder_dirs = ["Machine learning training set/*/original image/",
 
 folder_dirs = [os.path.join(data_dir, folder) for folder in folder_dirs]
 
-

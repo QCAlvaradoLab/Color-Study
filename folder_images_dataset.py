@@ -12,17 +12,33 @@ import imageio
 
 class FolderImages(Dataset):
     
-    def __init__(self, folder, img_size = 512):
+    def __init__(self, folder, data_dir = None, img_size = 512):
         
         self.img_size = img_size
+        self.folder = folder
+        self.data_dir = data_dir
         self.images = glob.glob(os.path.join(folder, "*"))
         
         # Remove annotation files in txt if any!
         self.images = [x for x in self.images if not x.endswith(".txt")]
+    
+    def get_color_stats(self):
+        
+        # HSV Color Ranges!
+        color_ranges = [(181, -1), (256, -1), (256, -1)]
+
+        #for img in self:
+        #    for color in range(img.shape[-1]):
+                #min_color, max_color = 
+                #if color_ranges[color][0] > img.min(axis=2)
 
     def __len__(self):
-
         return len(self.images)
+    
+    def __str__(self):
+        if self.data_dir:
+            folder_name = self.folder.replace(self.data_dir, "")
+        return "Folder: %s #Images: %d" % (folder_name, len(self.images))
 
     def __getitem__(self, idx):
         
@@ -59,5 +75,7 @@ for directory in folder_dirs:
         if os.path.isdir(dirs):
             # Remove all segmentation masks
             if "/masks/" not in dirs:
-                folder_datasets.append(FolderImages(dirs))
+                obj = FolderImages(dirs)
+                if len(obj)>0:
+                    folder_datasets.append(obj)
 
