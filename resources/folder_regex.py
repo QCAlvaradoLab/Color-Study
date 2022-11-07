@@ -1,7 +1,7 @@
 import os
 import glob
 
-data_dir = "/media/hans/T7/data/" # "/home/hans/Documents/data/"
+data_dir = "/home/hans/Downloads/data/" # "/media/hans/T7/data/"
 folder_dirs = ["Machine learning training set/*/original image/",
                "deepfish/data/",
                "Cichlid Picture Collection REVISED (UPDATED)-20220403T172132Z-001/Cichlid Picture Collection REVISED (UPDATED)/Annotated Photos/",
