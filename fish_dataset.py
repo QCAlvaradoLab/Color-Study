@@ -5,6 +5,7 @@ import glob
 
 import json
 import cv2
+import numpy as np
 
 from pprint import pprint 
 
@@ -52,20 +53,23 @@ class FishDataset(Dataset):
             
             with open(objects_file, 'r') as f:
                 obj = [x.strip() for x in f.readlines()]
-                print(obj)
+            
             num_objects = int(obj[0])
             h, w = [int(x) for x in obj[2].split(' ')]
             
-            for idx in range(4, len(obj), 3):
-                print (obj[idx])
-                print (obj[idx+1])
-                print (obj[idx+2])
+            image = cv2.imread(image)
 
-
-            print (objects); exit()
-            cv2.fillPoly(image, objects, 255 )
-            cv2.imshow('f', image)
-            
+            for idx in range(4, len(obj), 4):
+                organ = obj[idx]
+                area_of_poly = float(obj[idx+1])
+                poly_indices = [int(float(x)) for x in obj[idx+2].split(' ')]
+                polygon = [(poly_indices[i], poly_indices[i+1]) 
+                                for i in range(0, len(poly_indices)-1, 2)]
+                
+                cv2.fillPoly(image, [np.array(polygon).astype(np.int32)], (120, 20, 255)) 
+                
+                cv2.imshow('f', image)
+                cv2.waitKey()
 
     def get_alvaradolab_data(self, dtype, path):
         
@@ -73,7 +77,17 @@ class FishDataset(Dataset):
 
         images = glob.glob(os.path.join(self.folder_path, path, '*.jpg'))
         labels = [x.replace(".jpg", ".txt") for x in images]
+        
+        removable_indices = []
+        for idx, (img, label) in enumerate(zip(images, labels)):
+            if not (os.path.exists(img) and os.path.exists(label)):
+                removable_indices.append(idx)
+        
+        for idx in reversed(removable_indices):
+            del images[idx]
+            del labels[idx]
 
+        print ("Using %d labeled images!" % len(images))
         return_value = self.get_coco_style_annotations(images, labels)
 
     def __len__(self):
