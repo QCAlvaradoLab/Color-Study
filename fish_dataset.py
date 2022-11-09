@@ -40,7 +40,10 @@ class FishDataset(Dataset):
         
         self.folder_path = datasets_metadata["folder_path"] 
         datasets = datasets_metadata["datasets"] 
-        
+       
+        self.composite_labels = set()
+        self.xy_pairs = []
+
         for data in datasets:
             
             dataset_getter = getattr(self, "get_%s_data" % data["name"])(data["type"], data["folder"]) 
@@ -58,7 +61,9 @@ class FishDataset(Dataset):
             h, w = [int(x) for x in obj[2].split(' ')]
             
             image = cv2.imread(image)
-
+            
+            segment_array = np.zeros((*image.shape[:2], len(self.composite_labels)))
+            empty_indices = list(range(len(segment_array)))
             for idx in range(4, len(obj), 4):
                 organ = obj[idx]
                 area_of_poly = float(obj[idx+1])
@@ -66,9 +71,12 @@ class FishDataset(Dataset):
                 polygon = [(poly_indices[i], poly_indices[i+1]) 
                                 for i in range(0, len(poly_indices)-1, 2)]
                 
-                cv2.fillPoly(image, [np.array(polygon).astype(np.int32)], (120, 20, 255)) 
-                
-                cv2.imshow('f', image)
+                organ_index = self.composite_labels.index(organ)
+                seg = segment_array[:, :, organ_index].astype(np.uint8) 
+                cv2.fillPoly(seg, [np.array(polygon).astype(np.int32)], 255) 
+                segment_array[:, :, organ_index] = seg
+
+                cv2.imshow(organ, segment_array[:, :, organ_index])
                 cv2.waitKey()
 
     def get_alvaradolab_data(self, dtype, path):
@@ -86,12 +94,23 @@ class FishDataset(Dataset):
         for idx in reversed(removable_indices):
             del images[idx]
             del labels[idx]
+        
+        # get organ labels
+        for txt_file in labels:
+            with open(txt_file, 'r') as f:
+                obj = [x.strip() for x in f.readlines()]
+
+            for idx in range(4, len(obj), 4):
+                organ = obj[idx]
+                self.composite_labels.add(organ) 
+        
+        self.composite_labels = list(self.composite_labels)
 
         print ("Using %d labeled images!" % len(images))
         return_value = self.get_coco_style_annotations(images, labels)
 
     def __len__(self):
-        return 0
+        return 
 
     def __getitem__(self, idx):         
 
