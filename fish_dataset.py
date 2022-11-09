@@ -43,13 +43,6 @@ class FishDataset(Dataset):
         for data in datasets:
             
             dataset_getter = getattr(self, "get_%s_data" % data["name"])(data["type"], data["folder"]) 
-            num_objects = int(data[0])
-            h, w = [int(x) for x in data[2].split(' ')]
-            
-            for idx in range(4, len(data), 3):
-                print (data[idx])
-                print (data[idx+1])
-                print (data[idx+2])
 
     def get_coco_style_annotations(self, coco_images, coco_txt, ann_format="xywh"):
 
@@ -60,11 +53,19 @@ class FishDataset(Dataset):
             with open(objects_file, 'r') as f:
                 obj = [x.strip() for x in f.readlines()]
                 print(obj)
+            num_objects = int(obj[0])
+            h, w = [int(x) for x in obj[2].split(' ')]
+            
+            for idx in range(4, len(obj), 3):
+                print (obj[idx])
+                print (obj[idx+1])
+                print (obj[idx+2])
+
 
             print (objects); exit()
             cv2.fillPoly(image, objects, 255 )
             cv2.imshow('f', image)
-
+            
 
     def get_alvaradolab_data(self, dtype, path):
         
