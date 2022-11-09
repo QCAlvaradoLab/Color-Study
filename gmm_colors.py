@@ -74,20 +74,28 @@ class GMMColors(object):
                 if self.start_from > self.images_cumsum[idx+1]:
                     dataset_id += 1
                 else:
+                    print ("Start: ", self.start_from, "Dataset: ", idx, "Count: ", self.images_cumsum[idx+1])
+                    print ("HERE")
                     break
-
+            
             for d, dataset in enumerate(self.datasets):
                 
-                if d < dataset_id or (d>0 and self.start_from < self.images_cumsum[d-1]):
+                if d < dataset_id or (d>0 and self.start_from > self.images_cumsum[d-1]):
+                    print ("NEXT: USING DATASET: %d/%d" % (d, len(self.datasets)), self.images_cumsum[:idx])
+                    #idx += 1
                     continue
                 print ("USING DATASET: %d/%d" % (d, len(self.datasets)))
 
                 index = 0
+                print ("START FROM:", self.start_from, self.images_cumsum[:idx], idx, 'dataset', d)
                 
                 try:
                     for index, data in enumerate(Subset(dataset, 
                                                     list(range(self.start_from - self.images_cumsum[idx], len(dataset))))):    
-                            
+                        
+                        print (index, len(dataset))
+                        print ("START FROM:", self.start_from, self.start_from - self.images_cumsum[idx])
+
                         img_data = data # self.images[idx]
                         
                         saving_condition = (cur_index + index + self.start_from + 1) % self.save_every == 0
@@ -123,7 +131,7 @@ class GMMColors(object):
                     print ("Skipping images %d-%d in dataset %d" % (self.start_from - self.images_cumsum[idx] + index, len(dataset), d))
                     self.start_from = self.images_cumsum[idx] + len(dataset) 
                     
-                cur_index += index
+                cur_index += len(dataset) #index
             
             self.start_from = 0
 

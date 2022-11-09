@@ -48,13 +48,12 @@
 	{"folder": "Machine learning training set/",
 	 "name": "ml_training_set",
 	 "type": "segmentation/composite"
-	}
+	},
 
 	{"folder": "roboflow/",
 	 "name": "roboflow_mscoco",
 	 "type": "polygons"
 	}
-
 
 	],
 	"folder_path": "/home/hans/Music/data/"
