@@ -41,7 +41,6 @@ class FolderImages(Dataset):
         return "Folder: %s #Images: %d" % (folder_name, len(self.images))
 
     def __getitem__(self, idx):
-        
         try:
             if 'arw' in self.images[idx].lower():
                 raw = rawpy.imread(self.images[idx])

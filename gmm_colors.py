@@ -1,4 +1,3 @@
-import traceback
 import numpy as np
 
 import cv2
@@ -12,7 +11,7 @@ from torch.utils.data import Subset
 
 from sklearn.mixture import GaussianMixture
 
-from folder_images_dataset import folder_datasets
+from folder_images_dataset import FolderImages, folder_datasets
 
 class GMMColors(object):
     
@@ -25,13 +24,9 @@ class GMMColors(object):
         self.gmm_components = gmm_components
         
         self.models_dir = models_dir
-
         self.start_from, start_iter = self.load_model(init_params=init_params,
                                                       means_init=means_init, precisions_init=precisions_init,
                                                       warm_start=warm_start, verbose=verbose)
-           
-        if not os.path.isdir(models_dir):
-            os.makedirs(models_dir)
         
         if bayesian:
             raise NotImplementedError
@@ -50,75 +45,72 @@ class GMMColors(object):
         
         self.images_len = [len(x) for x in self.datasets] # glob.glob(os.path.join(images_dir, '*'))
         self.images_cumsum = [sum(self.images_len[:idx]) for idx in range(len(self.images_len))] # np.cumsum
-        #print (self.images_cumsum); exit()
-        
         self.images_len = sum(self.images_len)
 
         self.batch_size = batch_size
         
     def train(self):
-        
-        if not os.path.isdir(os.path.join(self.models_dir, "images", str(self.gmm_components))):
-            os.makedirs(os.path.join(self.models_dir, "images", str(self.gmm_components)))
-        
+
         for iters in range(*self.iters_range):
             
             print ("Starting iter: %d ; %d/%d!" % (iters, self.start_from, self.images_len))
                 
             cur_index = 0
             
-            dataset_id = 0
-            
-            for idx in range(len(self.images_cumsum)-1):    
-                
+            dataset_id, start_ptr = 0, 0
+            for idx in range(len(self.images_cumsum)-1):
                 if self.start_from > self.images_cumsum[idx+1]:
+                    start_ptr += len(self.datasets[dataset_id])
                     dataset_id += 1
                 else:
-                    print ("Start: ", self.start_from, "Dataset: ", idx, "Count: ", self.images_cumsum[idx+1])
-                    print ("HERE")
                     break
-            
+
+#            if (len(self.datasets[dataset_id]) - self.start_from + start_ptr) < self.save_every:
+#                start_ptr = 0
+#                self.start_from = 0
+#                dataset_id += 1
+
+
             for d, dataset in enumerate(self.datasets):
                 
-                if d < dataset_id or (d>0 and self.start_from > self.images_cumsum[d-1]):
-                    print ("NEXT: USING DATASET: %d/%d" % (d, len(self.datasets)), self.images_cumsum[:idx])
-                    #idx += 1
+                if d < dataset_id:
                     continue
                 print ("USING DATASET: %d/%d" % (d, len(self.datasets)))
-
+                   
                 index = 0
-                print ("START FROM:", self.start_from, self.images_cumsum[:idx], idx, 'dataset', d)
-                
+                   
                 try:
+
                     for index, data in enumerate(Subset(dataset, 
-                                                    list(range(self.start_from - self.images_cumsum[idx], len(dataset))))):    
-                        
-                        print (index, len(dataset))
-                        print ("START FROM:", self.start_from, self.start_from - self.images_cumsum[idx])
-
-                        img_data = data # self.images[idx]
-                        
-                        saving_condition = (cur_index + index + self.start_from + 1) % self.save_every == 0
-                        if saving_condition:
-                            self.save_model(iters, cur_index + index + self.start_from, before=True)
-                            before_display_img = self.predict_colors(img_data)
-
-                        img, shp = self.get_image_vector(img_data)
-                        self.gmm_model.fit(img)
-                        
-                        if saving_condition:
+                                                    list(range(self.start_from - start_ptr, len(dataset))))):    
                             
+                        img_data = data # self.images[idx]
+                        img, shp = self.get_image_vector(img_data)
+                        
+                        try:
+                            self.gmm_model.fit(img)
+                            #print (self.start_from - start_ptr, index, len(dataset))
+                        except Exception:
+                            print ("Image error: ", dataset.images[index])
+                            pass
+
+                        if (cur_index + index + self.start_from) % self.save_every == 0 or (self.save_every > len(dataset) - index):
+                            
+                            #print (cur_index, index, self.start_from, "imglen", self.images_len)
                             print ("Saving model at iter: %d ; Epoch : %d/%d" % (
                                         iters, cur_index + index + self.start_from, self.images_len), end=' ; ')
+                                
+                            if not os.path.isdir(self.models_dir):
+                                os.mkdir(self.models_dir)
                                 
                             self.save_model(iters, cur_index + index + self.start_from)
                                 
                             colors = self.predict_colors(img_data)
                             
-                            display_img = np.concatenate((self.COLORS[before_display_img.astype(np.uint8)], img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
-                            #cv2.imwrite(os.path.join(self.models_dir, "images", "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
+                            display_img = np.concatenate((img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
+                            #cv2.imwrite(os.path.join(self.models_dir, "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
                             #                self.COLORS[colors.astype(np.uint8)])    
-                            cv2.imwrite(os.path.join(self.models_dir, "images", str(self.gmm_components), "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
+                            cv2.imwrite(os.path.join(self.models_dir, "sample_%d_%d.png" % (iters, index + cur_index + self.start_from)), 
                                             display_img)    
                                 
                             # cv2.imshow('f', (colors * 255 / colors.max()).astype(np.uint8))
@@ -127,11 +119,10 @@ class GMMColors(object):
                             # cv2.waitKey()
                 
                 except Exception:
+                    print (self.start_from - start_ptr, index, len(dataset))
                     traceback.print_exc()
-                    print ("Skipping images %d-%d in dataset %d" % (self.start_from - self.images_cumsum[idx] + index, len(dataset), d))
-                    self.start_from = self.images_cumsum[idx] + len(dataset) 
-                    
-                cur_index += len(dataset) #index
+                
+                cur_index += index
             
             self.start_from = 0
 
@@ -147,25 +138,29 @@ class GMMColors(object):
     def load_model(self, init_params, means_init, precisions_init,
                          warm_start, verbose):
         
+        #models = glob.glob(os.path.join(self.models_dir, "gmm_*.npy"))
         models = glob.glob(os.path.join(self.models_dir, str(self.gmm_components), '*', 
-                                        '*', "gmm_w.npy"))
+                                         '*', "gmm_w.npy"))
         models = [x for x in models if "b/gmm_" not in x]
-        
-        get_num_list = lambda s: re.split(r'/', s)[6:9]
-        
-        sorted_models = sorted(models, key = lambda x: \
-                                int(get_num_list(x)[0]) * 10**6 + int(get_num_list(x)[1]))
-           
+         
+        get_num_list = lambda s: re.split(r'/', s)[-4:-1] # gmm_components, epoch, iter 
+
+        #get_num_list = lambda s: re.split(r'[_:]', s)
+
+        sorted_models = sorted(models, reverse=True, key = lambda x: \
+                                int(get_num_list(x)[2]) * 10**6 + int(get_num_list(x)[1]))
+
         if len(sorted_models) > 0:
-            spl = get_num_list(sorted_models[-1])
-            iters, epoch = int(spl[1]), int(spl[2])
+            spl = get_num_list(sorted_models[0])
+            iters, epoch = int(spl[2]), int(spl[1])
             self.gmm_components = int(spl[0])
-            self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(iters).zfill(5), 
-                                        str(epoch), "gmm_%s.npy" % (x))
+            print ("Loading model from %s with #gaussians: %d" % (sorted_models[-1], self.gmm_components))
+            self.model_path = lambda x: os.path.join(self.models_dir, 
+                                        "gmm_%d_%s_%d_%s.npy" % (self.gmm_components, x, iters, str(epoch).zfill(5)))
             
         else:
-            self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(0).zfill(5), 
-                                        str(0), "gmm_%s.npy" % (x))
+            self.model_path = lambda x: os.path.join(self.models_dir, 
+                                        "gmm_%d_%s_%d_%s.npy" % (self.gmm_components, x, 0, str(0).zfill(5)))
             
             print ("Cannot infer without training first!")
         
@@ -178,32 +173,31 @@ class GMMColors(object):
                 np.load(self.model_path("w")), \
                 np.load(self.model_path("means")), \
                 np.load(self.model_path("covariances"))
-                
-            self.gmm_model.fit(np.zeros((self.gmm_components + 1, 3)))
+            
+            self.gmm_model.fit(np.zeros((6, 3)))
             
             self.gmm_model.weights_ = w
             self.gmm_model.means_ = mu
             self.gmm_model.covariances_ = sigma
-            
-            print ("LOADED MODEL FROM EPOCH %d SUCCESSFULLY!" % iters)
-
         except Exception:
-            traceback.print_exc()
             pass
- 
+
         if len(sorted_models) > 0:
-            return iters, epoch  # iters, epoch+1
+            return epoch+1, iters
         else:
             return 0, 0
     
     def save_model(self, iters, epoch, before=False):
-         
+
         self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
-                                                str(iters) + ("" if not before else "b"), "gmm_%s.npy" % (x))
-
+                                                 str(iters) + ("" if not before else "b"), "gmm_%s.npy" % (x))
+ 
         if not os.path.isdir(os.path.dirname(self.model_path(""))):
-            os.makedirs(os.path.dirname(self.model_path("")))        
-
+            os.makedirs(os.path.dirname(self.model_path("")))     
+        
+        self.model_path = lambda x: os.path.join(self.models_dir, 
+                                    "gmm_%d_%s_%d_%s.npy" % (self.gmm_components, x, iters, str(epoch).zfill(5)))
+        
         np.save(self.model_path("w"), self.gmm_model.weights_)
         np.save(self.model_path("means"), self.gmm_model.means_)
         np.save(self.model_path("covariances"), self.gmm_model.covariances_)
@@ -235,8 +229,6 @@ kwargs.update(dict(parser["training"]))
 
 kwargs.update({x: int(kwargs[x]) for x in kwargs.keys() if kwargs[x].isdigit()})
 kwargs.update({x: bool(kwargs[x].replace("False", "")) for x in kwargs.keys() if kwargs[x] in ["True", "False"]})
-
-#kwargs.update({"save_every": 1})
 
 if __name__ == '__main__':
     
