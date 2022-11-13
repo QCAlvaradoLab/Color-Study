@@ -7,6 +7,8 @@ import glob
 
 import re
 
+import traceback
+
 from torch.utils.data import Subset
 
 from sklearn.mixture import GaussianMixture
@@ -24,15 +26,21 @@ class GMMColors(object):
         self.gmm_components = gmm_components
         
         self.models_dir = models_dir
-        self.start_from, start_iter = self.load_model(init_params=init_params,
-                                                      means_init=means_init, precisions_init=precisions_init,
-                                                      warm_start=warm_start, verbose=verbose)
+        
+        self.init_params = init_params
+        self.means_init = means_init
+        self.precisions_init = precisions_init
+        self.warm_start = warm_start
+        self.verbose = verbose
+        self.start_from, start_iter, self.gaussian_folder = self.load_model(init_params=self.init_params,
+                                                                  means_init=self.means_init, precisions_init=self.precisions_init,
+                                                                  warm_start=self.warm_start, verbose=self.verbose)
         
         if bayesian:
             raise NotImplementedError
-            # self.gmm_model = BayesianGaussianMixture(n_components=gmm_components, init_params=init_params,
-            #                                    means_init=means_init, precisions_init=precisions_init,
-            #                                    warm_start=warm_start, verbose=verbose)
+#           self.gmm_model = BayesianGaussianMixture(n_components=gmm_components, init_params=init_params,
+#                                                    means_init=means_init, precisions_init=precisions_init,
+#                                                    warm_start=warm_start, verbose=verbose)
         
         COLORS = np.random.randint(0, 255, size=(gmm_components - 1, 3),
                                         dtype="uint8")
@@ -49,7 +57,7 @@ class GMMColors(object):
 
         self.batch_size = batch_size
         
-    def train(self):
+    def train(self, per_folder_gaussians=True):
 
         for iters in range(*self.iters_range):
             
@@ -63,32 +71,32 @@ class GMMColors(object):
                     start_ptr = self.images_cumsum[idx]
                     break
 
-#            if (len(self.datasets[dataset_id]) - self.start_from + start_ptr) < self.save_every:
-#                start_ptr = 0
-#                self.start_from = 0
-#                dataset_id += 1
-
-
             for d, dataset in enumerate(self.datasets):
                 
                 num_images = len(dataset) - (self.start_from - start_ptr)
                 if d < dataset_id:
                     continue
                 print ("USING DATASET: %d/%d (%d images)" % (d, len(self.datasets), num_images))
-                   
+                
+                dataset_gaussian_folder = dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
+
                 index = 0
                    
                 try:
                     
                     data_subset_indices = list(range(len(dataset) - num_images, len(dataset)))
                     for index, data in enumerate(Subset(dataset, data_subset_indices)):    
-                            
-                        img_data = data # self.images[idx]
+                        
+                        if per_folder_gaussians and self.gaussian_folder != dataset_gaussian_folder and self.gaussian_folder != "":
+                            self.gmm_model = GaussianMixture(n_components=self.gmm_components, init_params=self.init_params,
+                                                                means_init=self.means_init, precisions_init=self.precisions_init,
+                                                                warm_start=self.warm_start, verbose=self.verbose)
+
+                        img_data = data 
                         img, shp = self.get_image_vector(img_data)
                         
                         try:
                             self.gmm_model.fit(img)
-                            #print (self.start_from - start_ptr, index, len(dataset))
                         except Exception:
                             print ("Image error: ", dataset.images[index])
                             pass
@@ -102,23 +110,20 @@ class GMMColors(object):
                             if not os.path.isdir(self.models_dir):
                                 os.mkdir(self.models_dir)
                                 
-                            self.save_model(iters, index + self.start_from)
+                            self.save_model(iters, index + self.start_from, dataset=dataset)
                                 
                             colors = self.predict_colors(img_data)
                             
                             display_img = np.concatenate((img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
-                            #cv2.imwrite(os.path.join(self.models_dir, "sample_%d_%d.png" % (iters, index + self.start_from)), 
-                            #                self.COLORS[colors.astype(np.uint8)])    
-                            cv2.imwrite(os.path.join(self.models_dir, "sample_%d_%d.png" % (iters, index + self.start_from)), 
-                                            display_img)    
+                            
+                            img_path = os.path.join(self.models_dir, "images", str(self.gmm_components), dataset_gaussian_folder, 
+                                                     "sample_%d_%d.png" % (iters, index + self.start_from))
+                            if not os.path.isdir(os.path.dirname(img_path)):
+                                os.makedirs(os.path.dirname(img_path))
+
+                            cv2.imwrite(img_path, display_img)    
                                 
-                            # cv2.imshow('f', (colors * 255 / colors.max()).astype(np.uint8))
-                            # cv2.imshow('f', (COLORS[colors.astype(np.uint8)]))
-                            # cv2.imshow('g', img.reshape(shp))
-                            # cv2.waitKey()
-                
                 except Exception:
-                    print (self.start_from - start_ptr, index, len(dataset))
                     traceback.print_exc()
                 
                 self.start_from += index+1
@@ -128,7 +133,7 @@ class GMMColors(object):
 
     def get_image_vector(self, img_data):
         
-        img = img_data #cv2.imread(img_path)
+        img = img_data 
         img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         img_shape = img.shape
@@ -138,29 +143,32 @@ class GMMColors(object):
     def load_model(self, init_params, means_init, precisions_init,
                          warm_start, verbose):
         
-        #models = glob.glob(os.path.join(self.models_dir, "gmm_*.npy"))
         models = glob.glob(os.path.join(self.models_dir, str(self.gmm_components), '*', 
-                                         '*', "gmm_w.npy"))
+                                         '*', "gmm_w*.npy"))
         models = [x for x in models if "b/gmm_" not in x]
          
         get_num_list = lambda s: re.split(r'/', s)[-4:-1] # gmm_components, epoch, iters=[0,1,...]
-
-        #get_num_list = lambda s: re.split(r'[_:]', s)
 
         sorted_models = sorted(models, reverse=True, key = lambda x: \
                                 int(get_num_list(x)[2]) * 10**6 + int(get_num_list(x)[1]))
 
         if len(sorted_models) > 0:
             spl = get_num_list(sorted_models[0])
+            
+            if "_w.npy" not in sorted_models[0]:
+                folder = "_".join("/".join(sorted_models[0][:-4].split("/")[-2:]).replace("/", "_").split("_")[-2:])
+            else:
+                folder = ""
+
             iters, epoch = int(spl[2]), int(spl[1])
             self.gmm_components = int(spl[0])
             print ("Loading model from %s with #gaussians: %d" % (sorted_models[0], self.gmm_components))
-            self.model_path = lambda x: os.path.join(self.models_dir, spl[0], spl[1].zfill(5), spl[2], 
-                                        "gmm_%s.npy" % (x))
+            self.model_path = lambda x: os.path.join(self.models_dir, spl[0], 
+                                                     spl[1].zfill(5), spl[2], "gmm_%s.npy"%x if folder=="" else "gmm_%s_%s.npy"%(x, folder))
             
         else:
-            self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(0).zfill(5), str(0),
-                                        "gmm_%s.npy" % (x))
+            self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), 
+                                                     str(0).zfill(5), str(0), "gmm_%s.npy"%x if folder=="" else "gmm_%s_%s.npy"%(x, folder))
             
             print ("Cannot infer without training first!")
         
@@ -183,20 +191,20 @@ class GMMColors(object):
             pass
 
         if len(sorted_models) > 0:
-            return epoch+1, iters
+            return epoch+1, iters, folder
         else:
-            return 0, 0
+            return 0, 0, folder
     
-    def save_model(self, iters, epoch, before=False): #TODO before
-
+    def save_model(self, iters, epoch, dataset=None, before=False): #TODO before
+        
+        data_folder = "" if dataset is None else dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
         self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
-                                                 str(iters) + ("" if not before else "b"), "gmm_%s.npy" % (x))
- 
+                                                 str(iters) + ("" if not before else "b"), "gmm_%s_%s.npy" % (x, data_folder))
+        
+        self.gaussian_folder = data_folder 
+
         if not os.path.isdir(os.path.dirname(self.model_path(""))):
             os.makedirs(os.path.dirname(self.model_path("")))     
-        
-        self.model_path = lambda x: os.path.join(self.models_dir, 
-                                    "gmm_%d_%s_%d_%s.npy" % (self.gmm_components, x, iters, str(epoch).zfill(5)))
         
         np.save(self.model_path("w"), self.gmm_model.weights_)
         np.save(self.model_path("means"), self.gmm_model.means_)
