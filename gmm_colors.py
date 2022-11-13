@@ -20,7 +20,7 @@ class GMMColors(object):
     def __init__(self, datasets, gmm_components=5, init_params="random_from_data", 
                 bayesian=False, means_init=None, precisions_init=None, batch_size=1,
                 warm_start=False, verbose=False, models_dir = "../models",
-                save_every=10, start_from=0, num_iters=5):
+                save_every=10, start_from=0, num_iters=5, foreground_gaussians=3):
         
         self.datasets = datasets
         self.gmm_components = gmm_components
@@ -42,7 +42,8 @@ class GMMColors(object):
 #                                                    means_init=means_init, precisions_init=precisions_init,
 #                                                    warm_start=warm_start, verbose=verbose)
         
-        COLORS = np.random.randint(0, 255, size=(gmm_components - 1, 3),
+        self.foreground_gaussians = foreground_gaussians
+        COLORS = np.random.randint(0, 255, size=(gmm_components + self.foreground_gaussians - 1, 3),
                                         dtype="uint8")
         
         self.COLORS = np.vstack([[0, 0, 0], COLORS]).astype("uint8")
@@ -60,6 +61,10 @@ class GMMColors(object):
     def infer_result(self, data, dataset_gaussian_folder, iters, index, img_str=""):
 
         colors = self.predict_colors(data)
+
+        if colors is None:
+            return
+
         display_img = np.concatenate((data, self.COLORS[colors.astype(np.uint8)]), axis=1)
                 
         img_path = os.path.join(self.models_dir, "images", str(self.gmm_components), dataset_gaussian_folder, 
@@ -92,6 +97,9 @@ class GMMColors(object):
                 print ("USING DATASET: %d/%d (%d images)" % (d, len(self.datasets), num_images))
                 
                 dataset_gaussian_folder = dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
+
+                if "_valid" in dataset_gaussian_folder and "_empty" not in dataset_gaussian_folder:
+                    self.gmm_components += self.foreground_gaussians
 
                 index = 0
                    
@@ -131,18 +139,9 @@ class GMMColors(object):
                                 os.mkdir(self.models_dir)
                                 
                             self.save_model(iters, index + self.start_from, dataset=dataset)
-                                
-                            colors = self.predict_colors(img_data)
                             
-                            display_img = np.concatenate((img_data, self.COLORS[colors.astype(np.uint8)]), axis=1)
-                            
-                            img_path = os.path.join(self.models_dir, "images", str(self.gmm_components), dataset_gaussian_folder, 
-                                                     "sample_%d_%d.png" % (iters, index + self.start_from))
-                            if not os.path.isdir(os.path.dirname(img_path)):
-                                os.makedirs(os.path.dirname(img_path))
-
-                            cv2.imwrite(img_path, display_img)    
-                                
+                            self.infer_result(img_data, dataset_gaussian_folder, iters, index, img_str="")
+                               
                 except Exception:
                     traceback.print_exc()
                 
@@ -241,11 +240,14 @@ class GMMColors(object):
 
         img_vec, shp = self.get_image_vector(img_data)
         
-        preds = self.gmm_model.predict(img_vec)
-        
-        output = preds.reshape(shp[:-1]) 
-        #np.repeat(preds.reshape(shp[:-1] + (1,)), 3, axis=-1)
-        
+        try:
+            preds = self.gmm_model.predict(img_vec)
+            output = preds.reshape(shp[:-1]) 
+            #np.repeat(preds.reshape(shp[:-1] + (1,)), 3, axis=-1)
+        except Exception:
+            print ("GMM not fit yet!")
+            return None
+
         return output
 
 import configparser
