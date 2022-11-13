@@ -56,7 +56,20 @@ class GMMColors(object):
         self.images_len = sum(self.images_len)
 
         self.batch_size = batch_size
-        
+    
+    def infer_result(self, data, dataset_gaussian_folder, iters, index, img_str=""):
+
+        colors = self.predict_colors(data)
+        display_img = np.concatenate((data, self.COLORS[colors.astype(np.uint8)]), axis=1)
+                
+        img_path = os.path.join(self.models_dir, "images", str(self.gmm_components), dataset_gaussian_folder, 
+                                 "sample_%d_%d_%s.png" % (iters, index + self.start_from, img_str))
+        if not os.path.isdir(os.path.dirname(img_path)):
+            os.makedirs(os.path.dirname(img_path))
+
+        cv2.imwrite(img_path, display_img)    
+                     
+
     def train(self, per_folder_gaussians=True):
 
         for iters in range(*self.iters_range):
@@ -95,8 +108,13 @@ class GMMColors(object):
                             self.gaussian_folder = dataset_gaussian_folder
                         
                         img_data = data 
-                        img, shp = self.get_image_vector(img_data)
+                        img, _ = self.get_image_vector(img_data)
                         
+                        if (index + self.start_from) % self.save_every == 0 or ( # Serialize wrt subset of dataset
+                            self.save_every > len(dataset) - data_subset_indices[0] and index + data_subset_indices[0] == len(dataset) - 1): # Edge case for index < self.save_every
+                            self.infer_result(data, dataset_gaussian_folder, iters, index, img_str="before")    
+                            self.save_model(iters, index + self.start_from, dataset=dataset, before=True)
+
                         try:
                             self.gmm_model.fit(img)
                         except Exception:
@@ -128,6 +146,11 @@ class GMMColors(object):
                 except Exception:
                     traceback.print_exc()
                 
+                # Infer using final GMM model after iteration!
+                for idx, data in enumerate(Subset(dataset, data_subset_indices)):
+                    if idx % self.save_every == 0:
+                        self.infer_result(data, dataset_gaussian_folder, iters, idx, img_str="final")
+                            
                 self.start_from += index+1
                 start_ptr = self.start_from
                  
@@ -184,7 +207,7 @@ class GMMColors(object):
                 np.load(self.model_path("means")), \
                 np.load(self.model_path("covariances"))
             
-            self.gmm_model.fit(np.zeros((6, 3)))
+            self.gmm_model.fit(np.zeros((self.gmm_components+1, 3)))
             
             self.gmm_model.weights_ = w
             self.gmm_model.means_ = mu
@@ -197,7 +220,7 @@ class GMMColors(object):
         else:
             return 0, 0, folder
     
-    def save_model(self, iters, epoch, dataset=None, before=False): #TODO before
+    def save_model(self, iters, epoch, dataset=None, before=False): 
         
         data_folder = "" if dataset is None else dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
         self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
