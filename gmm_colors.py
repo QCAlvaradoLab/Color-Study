@@ -88,10 +88,12 @@ class GMMColors(object):
                     for index, data in enumerate(Subset(dataset, data_subset_indices)):    
                         
                         if per_folder_gaussians and self.gaussian_folder != dataset_gaussian_folder and self.gaussian_folder != "":
+                            print ("."*50, "\n", "Using Re-Initialized GMM for new folder!", "\n", "."*50, "\n")
                             self.gmm_model = GaussianMixture(n_components=self.gmm_components, init_params=self.init_params,
                                                                 means_init=self.means_init, precisions_init=self.precisions_init,
                                                                 warm_start=self.warm_start, verbose=self.verbose)
-
+                            self.gaussian_folder = dataset_gaussian_folder
+                        
                         img_data = data 
                         img, shp = self.get_image_vector(img_data)
                         

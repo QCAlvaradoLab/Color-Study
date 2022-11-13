@@ -10,14 +10,20 @@ from torch.utils.data import Dataset
 import traceback
 import imageio
 
+from pathlib import Path
+
 class FolderImages(Dataset):
     
     def __init__(self, folder, data_dir = None, img_size = 512):
         
         self.img_size = img_size
-        self.folder = folder
-        self.data_dir = data_dir
-        self.images = glob.glob(os.path.join(folder, "*"))
+        
+        self.folder = folder if not data_dir else os.path.join(data_dir, folder)
+        if self.folder[-1] == "/":
+            self.folder = self.folder[:-1]
+        
+        self.data_dir = data_dir + "/"
+        self.images = glob.glob(os.path.join(self.folder, "*"))
         
         # Remove annotation files in txt if any!
         self.images = [x for x in self.images if not x.endswith(".txt")]
@@ -74,7 +80,10 @@ for directory in folder_dirs:
         if os.path.isdir(dirs):
             # Remove all segmentation masks
             if "/masks/" not in dirs:
-                obj = FolderImages(dirs)
+                if dirs[-1] == "/":
+                    dirs = dirs[:-1]
+                
+                obj = FolderImages(dirs.replace(str(Path(dirs).parents[1])+"/", ""), str(Path(dirs).parents[1]))
                 if len(obj)>0:
                     folder_datasets.append(obj)
 
