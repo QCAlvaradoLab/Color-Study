@@ -57,6 +57,7 @@ class GMMColors(object):
         self.images_len = sum(self.images_len)
 
         self.batch_size = batch_size
+        self.gmm_changed = False
     
     def infer_result(self, data, dataset_gaussian_folder, iters, index, img_str=""):
 
@@ -103,7 +104,6 @@ class GMMColors(object):
                     self.gmm_changed = True
                 else:
                     self.gmm_components = self.gmm_components - int(self.gmm_changed) * self.foreground_gaussians
-                    self.gmm_changed = False
 
                 index = 0
                    
@@ -113,7 +113,7 @@ class GMMColors(object):
                     for index, data in enumerate(Subset(dataset, data_subset_indices)):    
                         
                         if per_folder_gaussians and self.gaussian_folder != dataset_gaussian_folder and self.gaussian_folder != "":
-                            print ("."*50, "\n", "Using Re-Initialized GMM for new folder!", "\n", "."*50, "\n")
+                            print ("."*50, "\n", "Using Re-Initialized GMM for new folder %s!" % dataset_gaussian_folder, "\n", "."*50, "\n")
                             self.gmm_model = GaussianMixture(n_components=self.gmm_components, init_params=self.init_params,
                                                                 means_init=self.means_init, precisions_init=self.precisions_init,
                                                                 warm_start=self.warm_start, verbose=self.verbose)
