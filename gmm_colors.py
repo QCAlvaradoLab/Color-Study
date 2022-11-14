@@ -100,6 +100,10 @@ class GMMColors(object):
 
                 if "_valid" in dataset_gaussian_folder and "_empty" not in dataset_gaussian_folder:
                     self.gmm_components += self.foreground_gaussians
+                    self.gmm_changed = True
+                else:
+                    self.gmm_components = self.gmm_components - int(self.gmm_changed) * self.foreground_gaussians
+                    self.gmm_changed = False
 
                 index = 0
                    
