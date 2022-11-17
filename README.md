@@ -2,6 +2,9 @@ A collection of methods to analyse color changes in species of fish with the int
 
 ![Cherry-picking](resources/sample_results.png?raw=true "Sample GMM Color Distributions")
 
+#TODO: Add illumination correction to GMM to eliminate it in favor of color
+https://stackoverflow.com/questions/63933790/robust-algorithm-to-detect-uneven-illumination-in-images-detection-only-needed
+
 #### CURRENT DATASETS (https://drive.google.com/drive/folders/1Jecz9_nhU0kngk2iSdJKmcHYiMJRCZzt):
 
 ##### Please feel free to suggest any new ones involving fish (hansk@nyu.edu)
