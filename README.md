@@ -1,5 +1,7 @@
 A collection of methods to analyse color changes in species of fish with the interest to extend it to other species of interest that show variations in color as parts of different aspects of their evolution! 
 
+![Cherry-picking](resources/sample_results.png?raw=true "Sample GMM Color Distributions")
+
 #### CURRENT DATASETS (https://drive.google.com/drive/folders/1Jecz9_nhU0kngk2iSdJKmcHYiMJRCZzt):
 
 ##### Please feel free to suggest any new ones involving fish (hansk@nyu.edu)
