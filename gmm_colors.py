@@ -74,7 +74,6 @@ class GMMColors(object):
             os.makedirs(os.path.dirname(img_path))
 
         cv2.imwrite(img_path, display_img)    
-                     
 
     def train(self, per_folder_gaussians=True):
 
@@ -104,6 +103,7 @@ class GMMColors(object):
                     self.gmm_changed = True
                 else:
                     self.gmm_components = self.gmm_components - int(self.gmm_changed) * self.foreground_gaussians
+                    self.gmm_changed = False
 
                 index = 0
                    
