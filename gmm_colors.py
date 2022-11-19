@@ -32,6 +32,11 @@ class GMMColors(object):
         self.precisions_init = precisions_init
         self.warm_start = warm_start
         self.verbose = verbose
+        
+        self.foreground_gaussians = foreground_gaussians
+        self.foreground_constraint = lambda foldername: "_valid" in foldername and "_empty" not in foldername
+        
+        self.gmm_changed = False
         self.start_from, start_iter, self.gaussian_folder = self.load_model(init_params=self.init_params,
                                                                   means_init=self.means_init, precisions_init=self.precisions_init,
                                                                   warm_start=self.warm_start, verbose=self.verbose)
@@ -42,7 +47,6 @@ class GMMColors(object):
 #                                                    means_init=means_init, precisions_init=precisions_init,
 #                                                    warm_start=warm_start, verbose=verbose)
         
-        self.foreground_gaussians = foreground_gaussians
         COLORS = np.random.randint(0, 255, size=(gmm_components + self.foreground_gaussians - 1, 3),
                                         dtype="uint8")
         
@@ -57,7 +61,6 @@ class GMMColors(object):
         self.images_len = sum(self.images_len)
 
         self.batch_size = batch_size
-        self.gmm_changed = False
     
     def infer_result(self, data, dataset_gaussian_folder, iters, index, img_str=""):
 
@@ -98,7 +101,7 @@ class GMMColors(object):
                 
                 dataset_gaussian_folder = dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
 
-                if "_valid" in dataset_gaussian_folder and "_empty" not in dataset_gaussian_folder:
+                if self.foreground_constraint(dataset_gaussian_folder) and not self.gmm_changed:
                     self.gmm_components += self.foreground_gaussians
                     self.gmm_changed = True
                 else:
@@ -123,7 +126,9 @@ class GMMColors(object):
                         img, _ = self.get_image_vector(img_data)
                         
                         if (index + self.start_from) % self.save_every == 0 or ( # Serialize wrt subset of dataset
-                            self.save_every > len(dataset) - data_subset_indices[0] and index + data_subset_indices[0] == len(dataset) - 1): # Edge case for index < self.save_every
+                            self.save_every > len(dataset) - data_subset_indices[0] and \
+                            index + data_subset_indices[0] == len(dataset) - 1): # Edge case for index < self.save_every
+                            
                             self.infer_result(data, dataset_gaussian_folder, iters, index, img_str="before")    
                             self.save_model(iters, index + self.start_from, dataset=dataset, before=True)
 
@@ -134,7 +139,8 @@ class GMMColors(object):
                             pass
                         
                         if (index + self.start_from) % self.save_every == 0 or ( # Serialize wrt subset of dataset
-                            self.save_every > len(dataset) - data_subset_indices[0] and index + data_subset_indices[0] == len(dataset) - 1): # Edge case for index < self.save_every
+                            self.save_every > len(dataset) - data_subset_indices[0] and \
+                            index + data_subset_indices[0] == len(dataset) - 1): # Edge case for index < self.save_every
                             
                             print ("Saving model at iter: %d ; Epoch : %d/%d" % (
                                         iters, index + self.start_from, self.images_len), end=' ; ')
@@ -143,7 +149,6 @@ class GMMColors(object):
                                 os.mkdir(self.models_dir)
                                 
                             self.save_model(iters, index + self.start_from, dataset=dataset)
-                            
                             self.infer_result(img_data, dataset_gaussian_folder, iters, index, img_str="")
                                
                 except Exception:
@@ -156,7 +161,8 @@ class GMMColors(object):
                             
                 self.start_from += index+1
                 start_ptr = self.start_from
-                 
+            
+            self.gmm_changed = False
             self.start_from = 0
 
     def get_image_vector(self, img_data):
@@ -173,6 +179,9 @@ class GMMColors(object):
         
         models = glob.glob(os.path.join(self.models_dir, str(self.gmm_components), '*', 
                                          '*', "gmm_w*.npy"))
+        models.extend(glob.glob(os.path.join(self.models_dir, str(self.gmm_components + self.foreground_gaussians), '*', 
+                                         '*', "gmm_w*.npy")))
+
         models = [x for x in models if "b/gmm_" not in x]
          
         get_num_list = lambda s: re.split(r'/', s)[-4:-1] # gmm_components, epoch, iters=[0,1,...]
@@ -189,6 +198,8 @@ class GMMColors(object):
                 folder = ""
 
             iters, epoch = int(spl[2]), int(spl[1])
+            if int(spl[0]) == self.gmm_components + self.foreground_gaussians:
+                self.gmm_changed = True            
             self.gmm_components = int(spl[0])
             print ("Loading model from %s with #gaussians: %d" % (sorted_models[0], self.gmm_components))
             self.model_path = lambda x: os.path.join(self.models_dir, spl[0], 
