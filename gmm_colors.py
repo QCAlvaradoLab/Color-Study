@@ -188,7 +188,8 @@ class GMMColors(object):
 
         sorted_models = sorted(models, reverse=True, key = lambda x: \
                                 int(get_num_list(x)[2]) * 10**6 + int(get_num_list(x)[1]))
-
+        
+        folder = self.models_dir
         if len(sorted_models) > 0:
             spl = get_num_list(sorted_models[0])
             
@@ -245,11 +246,15 @@ class GMMColors(object):
         if not os.path.isdir(os.path.dirname(self.model_path(""))):
             os.makedirs(os.path.dirname(self.model_path("")))     
         
-        np.save(self.model_path("w"), self.gmm_model.weights_)
-        np.save(self.model_path("means"), self.gmm_model.means_)
-        np.save(self.model_path("covariances"), self.gmm_model.covariances_)
+        try:
+            np.save(self.model_path("w"), self.gmm_model.weights_)
+            np.save(self.model_path("means"), self.gmm_model.means_)
+            np.save(self.model_path("covariances"), self.gmm_model.covariances_)
 
-        print ("Saved model to : %s" % (self.model_path("files")), end='\r')
+            print ("Saved model to : %s" % (self.model_path("files")), end='\r')
+        
+        except Exception:
+            pass
 
     def predict_colors(self, img_data):
 
