@@ -12,6 +12,7 @@ import traceback
 from torch.utils.data import Subset
 
 from sklearn.mixture import GaussianMixture
+from sklearn.exceptions import ConvergenceWarning
 
 from folder_images_dataset import FolderImages, folder_datasets
 
@@ -134,6 +135,12 @@ class GMMColors(object):
 
                         try:
                             self.gmm_model.fit(img)
+        
+                        except ConvergenceWarning as e:
+                            #TODO: Does this need a solution or dataset construction based on selecting folders of images right?
+                            print (e)
+                            pass
+
                         except Exception:
                             print ("Image error: ", dataset.images[index])
                             pass
