@@ -94,11 +94,11 @@ class GMMColors(object):
                     break
 
             for d, dataset in enumerate(self.datasets):
-                
+                    
                 num_images = len(dataset) - (self.start_from - start_ptr)
                 if d < dataset_id:
                     continue
-                print ("USING DATASET: %d/%d (%d images)" % (d, len(self.datasets), num_images))
+                print ("USING DATASET: %d/%d (%d images)" % (d+1, len(self.datasets), num_images))
                 
                 dataset_gaussian_folder = dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
 
@@ -115,12 +115,18 @@ class GMMColors(object):
                     
                     data_subset_indices = list(range(len(dataset) - num_images, len(dataset)))
                     for index, data in enumerate(Subset(dataset, data_subset_indices)):    
-                        
+                                    
+                        if iters > 0:
+                            dataset_gaussian_folder = self.load_model(iters = iters - 1, epoch = index + self.start_from)
+                            print ("."*50, "\n", "Using Re-Initialized GMM for new folder %s!" % dataset_gaussian_folder, "\n", "."*50, "\n")
+                            per_folder_gaussians = False
+
                         if per_folder_gaussians and self.gaussian_folder != dataset_gaussian_folder and self.gaussian_folder != "":
                             print ("."*50, "\n", "Using Re-Initialized GMM for new folder %s!" % dataset_gaussian_folder, "\n", "."*50, "\n")
                             self.gmm_model = GaussianMixture(n_components=self.gmm_components, init_params=self.init_params,
                                                                 means_init=self.means_init, precisions_init=self.precisions_init,
                                                                 warm_start=self.warm_start, verbose=self.verbose)
+                            
                             self.gaussian_folder = dataset_gaussian_folder
                         
                         img_data = data 
@@ -180,7 +186,34 @@ class GMMColors(object):
         img_shape = img.shape
         img = img.reshape((-1, img.shape[-1])) / 255.0
         return img, img_shape
-    
+
+    def load_file(self, file_fn):
+
+        try:
+            w, mu, sigma = \
+                np.load(file_fn("w")), \
+                np.load(file_fn("means")), \
+                np.load(file_fn("covariances"))
+            
+            self.gmm_model.fit(np.zeros((self.gmm_components+1, 3)))
+            
+            self.gmm_model.weights_ = w
+            self.gmm_model.means_ = mu
+            self.gmm_model.covariances_ = sigma
+        
+        except Exception:
+            pass
+
+    def load_model(self, iters, epoch):
+        
+        model_fn =  lambda x: os.path.join(self.models_dir, self.gmm_components, 
+                                            str(epoch).zfill(5), iters, "gmm_%s.npy"%x if \
+                                            folder=="" else "gmm_%s_%s.npy"%(x, folder))
+
+        self.load_file(model_fn)
+        
+        return model_fn("w")
+
     def load_model(self, init_params, means_init, precisions_init,
                          warm_start, verbose):
         
@@ -210,11 +243,11 @@ class GMMColors(object):
                 self.gmm_changed = True            
             self.gmm_components = int(spl[0])
             print ("Loading model from %s with #gaussians: %d" % (sorted_models[0], self.gmm_components))
-            self.model_path = lambda x: os.path.join(self.models_dir, spl[0], 
+            model_fn = lambda x: os.path.join(self.models_dir, spl[0], 
                                                      spl[1].zfill(5), spl[2], "gmm_%s.npy"%x if folder=="" else "gmm_%s_%s.npy"%(x, folder))
             
         else:
-            self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), 
+            model_fn = lambda x: os.path.join(self.models_dir, str(self.gmm_components), 
                                                      str(0).zfill(5), str(0), "gmm_%s.npy"%x if folder=="" else "gmm_%s_%s.npy"%(x, folder))
             
             print ("Cannot infer without training first!")
@@ -223,19 +256,7 @@ class GMMColors(object):
                                                 means_init=means_init, precisions_init=precisions_init,
                                                 warm_start=warm_start, verbose=verbose)
         
-        try:
-            w, mu, sigma = \
-                np.load(self.model_path("w")), \
-                np.load(self.model_path("means")), \
-                np.load(self.model_path("covariances"))
-            
-            self.gmm_model.fit(np.zeros((self.gmm_components+1, 3)))
-            
-            self.gmm_model.weights_ = w
-            self.gmm_model.means_ = mu
-            self.gmm_model.covariances_ = sigma
-        except Exception:
-            pass
+        self.load_file(model_fn)
 
         if len(sorted_models) > 0:
             return epoch+1, iters, folder
@@ -245,20 +266,20 @@ class GMMColors(object):
     def save_model(self, iters, epoch, dataset=None, before=False): 
         
         data_folder = "" if dataset is None else dataset.folder.replace(dataset.data_dir, "").replace("/", "_")
-        self.model_path = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
+        model_fn = lambda x: os.path.join(self.models_dir, str(self.gmm_components), str(epoch).zfill(5),
                                                  str(iters) + ("" if not before else "b"), "gmm_%s_%s.npy" % (x, data_folder))
         
         self.gaussian_folder = data_folder 
 
-        if not os.path.isdir(os.path.dirname(self.model_path(""))):
-            os.makedirs(os.path.dirname(self.model_path("")))     
+        if not os.path.isdir(os.path.dirname(model_fn(""))):
+            os.makedirs(os.path.dirname(model_fn("")))     
         
         try:
-            np.save(self.model_path("w"), self.gmm_model.weights_)
-            np.save(self.model_path("means"), self.gmm_model.means_)
-            np.save(self.model_path("covariances"), self.gmm_model.covariances_)
+            np.save(model_fn("w"), self.gmm_model.weights_)
+            np.save(model_fn("means"), self.gmm_model.means_)
+            np.save(model_fn("covariances"), self.gmm_model.covariances_)
 
-            print ("Saved model to : %s" % (self.model_path("files")), end='\r')
+            print ("Saved model to : %s" % (model_fn("files")), end='\r')
         
         except Exception:
             pass
