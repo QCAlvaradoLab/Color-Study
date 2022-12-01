@@ -1,3 +1,5 @@
+from multipledispatch import dispatch
+
 import numpy as np
 
 import cv2
@@ -114,12 +116,19 @@ class GMMColors(object):
                 try:
                     
                     data_subset_indices = list(range(len(dataset) - num_images, len(dataset)))
+                    
+                    load_prev_iter_model = True
                     for index, data in enumerate(Subset(dataset, data_subset_indices)):    
                                     
-                        if iters > 0:
-                            dataset_gaussian_folder = self.load_model(iters = iters - 1, epoch = index + self.start_from)
-                            print ("."*50, "\n", "Using Re-Initialized GMM for new folder %s!" % dataset_gaussian_folder, "\n", "."*50, "\n")
+                        if iters > 0 and num_images==len(dataset) and load_prev_iter_model:
+                            nearest_save_every = lambda x: x - (x % self.save_every)
+                            
+                            last_iter_model_dir = self.load_model_from_epoch(iters = iters - 1, 
+                                                                                epoch = nearest_save_every(len(data_subset_indices) + self.start_from))
+                            
+                            print ("."*50, "\n", "Using GMM from last epoch folder %s!" % last_iter_model_dir, "\n", "."*50, "\n")
                             per_folder_gaussians = False
+                            load_prev_iter_model = False
 
                         if per_folder_gaussians and self.gaussian_folder != dataset_gaussian_folder and self.gaussian_folder != "":
                             print ("."*50, "\n", "Using Re-Initialized GMM for new folder %s!" % dataset_gaussian_folder, "\n", "."*50, "\n")
@@ -203,12 +212,11 @@ class GMMColors(object):
         
         except Exception:
             pass
-
-    def load_model(self, iters, epoch):
+    
+    def load_model_from_epoch(self, iters, epoch):
         
-        model_fn =  lambda x: os.path.join(self.models_dir, self.gmm_components, 
-                                            str(epoch).zfill(5), iters, "gmm_%s.npy"%x if \
-                                            folder=="" else "gmm_%s_%s.npy"%(x, folder))
+        model_fn =  lambda x: os.path.join(self.models_dir, str(self.gmm_components), 
+                                            str(epoch).zfill(5), str(iters), "gmm_%s.npy"%x)
 
         self.load_file(model_fn)
         
