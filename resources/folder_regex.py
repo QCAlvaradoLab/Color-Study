@@ -9,8 +9,15 @@ folder_dirs = ["Machine learning training set/*/original image/",
                "DeepFish/*/*/*/",
                "Fish-Pak/*/*/",
                "Fish Photography that needs to be matched for HK/*/",
-               "Pawsey/FDFML/labelled/frames/*/",
+               "pawsey/FDFML/frames/",
                "Phase 2 Color quantification for Hans/*/"]
+
+"""
+folder_dirs.extend([
+        "Fish_automated_identification_and_counting/luderick-seagrass/",
+        ""
+    ])
+"""
 
 folder_dirs = [os.path.join(data_dir, folder) for folder in folder_dirs]
 
