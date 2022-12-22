@@ -2,6 +2,8 @@ A collection of methods to analyse color changes in species of fish with the int
 
 ![Cherry-picking](resources/sample_results.png?raw=true "Sample GMM Color Distributions")
 
+### NOTE: The number of gaussians here are taken to be more than the number of colors on purpose to enable distribution based averaging after the hierarchical segmentation of organs of the fish!
+
 #TODO: Add illumination correction to GMM to eliminate it in favor of color
 https://stackoverflow.com/questions/63933790/robust-algorithm-to-detect-uneven-illumination-in-images-detection-only-needed
 
@@ -10,6 +12,8 @@ Link to result images from GMM-based color segmentation: https://drive.google.co
 #### CURRENT DATASETS (https://drive.google.com/drive/folders/1Jecz9_nhU0kngk2iSdJKmcHYiMJRCZzt):
 
 ##### Please feel free to suggest any new ones involving fish (hansk@nyu.edu)
+
+##### Make sure the folder names are unique!
 
  - Folder: Machine learning training set/photos 1.30.2019/original image/ #Images: 92
  - Folder: Machine learning training set/photos 1.30.2019/eye/ #Images: 91
