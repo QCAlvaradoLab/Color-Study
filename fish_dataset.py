@@ -12,6 +12,14 @@ from pprint import pprint
 import torch
 from torch.utils.data import Dataset
 
+from color_constants import colors
+from random import shuffle
+colors = {k: colors[k] for k in colors if \
+                any([x in colors for x in ["blue", "red", "cyan", "yellow", "green"]]) and \
+                not any([str(x) in colors for x in range(1,5)])}
+colors = list(colors.values())
+shuffle(colors)
+
 INIT = ['whole_body']
 HPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_fin'], ['head', 'eye', 'operculum']]
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
@@ -31,7 +39,7 @@ class FishDataset(Dataset):
     DATASET_TYPES.extend(list(map(lambda s: \
                             s + "/composite", DATASET_TYPES)))
 
-    def __init__(self, dataset_type="segmentation", config_file = "resources/config.json"):
+    def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", img_shape = 256):
         
         assert dataset_type in self.DATASET_TYPES
         
@@ -44,9 +52,25 @@ class FishDataset(Dataset):
         self.composite_labels = set()
         self.xy_pairs = []
 
+        self.img_shape = img_shape
+        
+        # Accepts single type of data only
+        datasets = reversed(list(reversed([x for x in datasets if x["type"] == dataset_type])))
+        
         for data in datasets:
             
             dataset_getter = getattr(self, "get_%s_data" % data["name"])(data["type"], data["folder"]) 
+            
+            while True:
+                try:
+                    image, segment = next(dataset_getter)
+                    self.display_composite_annotations(image, segment)
+                                    
+                except StopIteration:
+                    break
+
+            exit()
+            #print (next(dataset_getter))
 
     def get_coco_style_annotations(self, coco_images, coco_txt, ann_format="xywh"):
 
@@ -64,6 +88,7 @@ class FishDataset(Dataset):
             
             segment_array = np.zeros((*image.shape[:2], len(self.composite_labels)))
             empty_indices = list(range(len(segment_array)))
+            
             for idx in range(4, len(obj), 4):
                 organ = obj[idx]
                 area_of_poly = float(obj[idx+1])
@@ -75,9 +100,36 @@ class FishDataset(Dataset):
                 seg = segment_array[:, :, organ_index].astype(np.uint8) 
                 cv2.fillPoly(seg, [np.array(polygon).astype(np.int32)], 255) 
                 segment_array[:, :, organ_index] = seg
+                
+            yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-                cv2.imshow(organ, segment_array[:, :, organ_index])
-                cv2.waitKey()
+    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=True):
+        
+        alpha = 0.4
+
+        image = image.transpose((1,2,0)).astype(np.uint8)
+        cv2.imshow("image", image)
+        
+        if hide_whole_body_segment:
+            largest_segment_id = np.argmax(labels_map.sum(axis=(1,2)))
+            print ("Ignoring largest segment %s!" % self.composite_labels[largest_segment_id])
+        else:
+            largest_segment_id = -1
+
+        labels_map = labels_map.transpose((1,2,0)).astype(np.uint8)
+        for seg_id in range(labels_map.shape[-1]):
+           
+            cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
+            
+            if largest_segment_id != -1 and seg_id == largest_segment_id:
+                continue
+
+            seg_image = np.expand_dims(labels_map[:,:,seg_id], axis=-1).repeat(3, axis=-1) * np.array(colors[seg_id]).astype(np.uint8)
+            seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
+            image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
+        
+        cv2.imshow("fish_all_parts", image)
+        cv2.waitKey()
 
     def get_alvaradolab_data(self, dtype, path):
         
@@ -107,7 +159,13 @@ class FishDataset(Dataset):
         self.composite_labels = list(self.composite_labels)
 
         print ("Using %d labeled images!" % len(images))
-        return_value = self.get_coco_style_annotations(images, labels)
+        return_value_generator = self.get_coco_style_annotations(images, labels)
+        
+        return return_value_generator
+    
+    def get_ml_training_set_data(self, dtype, path):
+
+        assert dtype == "segmentation/composite"
 
     def __len__(self):
         return 
@@ -118,6 +176,4 @@ class FishDataset(Dataset):
 
 if __name__ == "__main__":
 
-    dataset = FishDataset()
-
-    
+    dataset = FishDataset(dataset_type="segmentation/composite")
