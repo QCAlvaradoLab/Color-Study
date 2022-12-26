@@ -21,7 +21,14 @@ colors = list(colors.values())
 shuffle(colors)
 
 INIT = ['whole_body']
+
+# Composite parts: 
+# ventral_side seems like it needs to fully cover anal_fin and pectoral_fin from Google Search results on the topic
+# dorsal_side doesn't cover dorsal fin
+# operculum boundaries are outside head region
 CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_fin'], ['head', 'eye', 'operculum']]
+
+# Independent parts are ones without compositional overlap: whole_body contains these parts independently
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
 
 IMG_TYPES = ['jpg', 'png', 'arw']
@@ -105,7 +112,7 @@ class FishDataset(Dataset):
 
     def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=True, show_composite_parts=True):
         
-        alpha = 0.4
+        alpha = 0.8
 
         image = image.transpose((1,2,0)).astype(np.uint8)
         cv2.imshow("image", image)
@@ -120,14 +127,16 @@ class FishDataset(Dataset):
 
         outer_loop_times = len(CPARTS) if show_composite_parts and any([x in self.composite_labels for y in CPARTS for x in y]) else 1
         
+        image_copy = image.copy()
+
         for outer_loop_idx in range(outer_loop_times):
             
             visited = []
-
+            
             for seg_id in range(labels_map.shape[-1]):
                 
                 if outer_loop_times > 1:
-
+                    
                     if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
                         continue
                     else:
@@ -149,6 +158,9 @@ class FishDataset(Dataset):
             cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
                             ), image)
             cv2.waitKey()
+            cv2.destroyAllWindows()
+            
+            image = image_copy
 
     def get_alvaradolab_data(self, dtype, path):
         
