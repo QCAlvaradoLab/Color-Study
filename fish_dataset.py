@@ -21,7 +21,7 @@ colors = list(colors.values())
 shuffle(colors)
 
 INIT = ['whole_body']
-HPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_fin'], ['head', 'eye', 'operculum']]
+CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_fin'], ['head', 'eye', 'operculum']]
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
 
 IMG_TYPES = ['jpg', 'png', 'arw']
@@ -103,7 +103,7 @@ class FishDataset(Dataset):
                 
             yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=True):
+    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=True, show_composite_parts=True):
         
         alpha = 0.4
 
@@ -117,19 +117,38 @@ class FishDataset(Dataset):
             largest_segment_id = -1
 
         labels_map = labels_map.transpose((1,2,0)).astype(np.uint8)
-        for seg_id in range(labels_map.shape[-1]):
-           
-            cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
-            
-            if largest_segment_id != -1 and seg_id == largest_segment_id:
-                continue
 
-            seg_image = np.expand_dims(labels_map[:,:,seg_id], axis=-1).repeat(3, axis=-1) * np.array(colors[seg_id]).astype(np.uint8)
-            seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
-            image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
+        outer_loop_times = len(CPARTS) if show_composite_parts and any([x in self.composite_labels for y in CPARTS for x in y]) else 1
         
-        cv2.imshow("fish_all_parts", image)
-        cv2.waitKey()
+        for outer_loop_idx in range(outer_loop_times):
+            
+            visited = []
+
+            for seg_id in range(labels_map.shape[-1]):
+                
+                if outer_loop_times > 1:
+
+                    if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
+                        continue
+                    else:
+                        visited.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
+
+                cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
+                
+                if largest_segment_id != -1 and seg_id == largest_segment_id:
+                    continue
+
+                seg_image = np.expand_dims(labels_map[:,:,seg_id], axis=-1).repeat(3, axis=-1) * np.array(colors[seg_id]).astype(np.uint8)
+                seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
+                image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
+            
+            missing_annotation_indices = set(range(len(CPARTS[outer_loop_idx]))) - set(visited)
+            if len(missing_annotation_indices) > 0:
+                print ("Cannot find annotations for %s" % ", ".join([CPARTS[outer_loop_idx][x] for x in missing_annotation_indices])) 
+
+            cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
+                            ), image)
+            cv2.waitKey()
 
     def get_alvaradolab_data(self, dtype, path):
         
