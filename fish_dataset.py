@@ -31,6 +31,8 @@ CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_
 # Independent parts are ones without compositional overlap: whole_body contains these parts independently
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
 
+#TAIL = ["whole_body_intersection"]
+
 IMG_TYPES = ['jpg', 'png', 'arw']
 IMG_TYPES.extend([x.upper() for x in IMG_TYPES])
 
@@ -119,12 +121,18 @@ class FishDataset(Dataset):
         
         if hide_whole_body_segment:
             largest_segment_id = np.argmax(labels_map.sum(axis=(1,2)))
-            print ("Ignoring largest segment %s!" % self.composite_labels[largest_segment_id])
+
+            if self.composite_labels[largest_segment_id] == "whole_body":
+                print ("Ignoring largest segment %s!" % self.composite_labels[largest_segment_id])
+            else:
+                largest_segment_id = -1
         else:
             largest_segment_id = -1
 
         labels_map = labels_map.transpose((1,2,0)).astype(np.uint8)
-
+        
+        CPARTS.append(INDEP)
+        print (CPARTS)
         outer_loop_times = len(CPARTS) if show_composite_parts and any([x in self.composite_labels for y in CPARTS for x in y]) else 1
         
         image_copy = image.copy()
@@ -142,7 +150,7 @@ class FishDataset(Dataset):
                     else:
                         visited.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
 
-                cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
+                #cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
                 
                 if largest_segment_id != -1 and seg_id == largest_segment_id:
                     continue
