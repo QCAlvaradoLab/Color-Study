@@ -30,8 +30,7 @@ CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_
 
 # Independent parts are ones without compositional overlap: whole_body contains these parts independently
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
-
-#TAIL = ["whole_body_intersection"]
+CPARTS.append(INDEP)
 
 IMG_TYPES = ['jpg', 'png', 'arw']
 IMG_TYPES.extend([x.upper() for x in IMG_TYPES])
@@ -117,29 +116,29 @@ class FishDataset(Dataset):
         alpha = 0.8
 
         image = image.transpose((1,2,0)).astype(np.uint8)
-        cv2.imshow("image", image)
+        #cv2.imshow("image", image)
         
         if hide_whole_body_segment:
             largest_segment_id = np.argmax(labels_map.sum(axis=(1,2)))
 
             if self.composite_labels[largest_segment_id] == "whole_body":
-                print ("Ignoring largest segment %s!" % self.composite_labels[largest_segment_id])
+                print ("\nIgnoring largest segment %s!" % self.composite_labels[largest_segment_id])
             else:
+                print ("\nCannot find whole body segment!")
                 largest_segment_id = -1
         else:
             largest_segment_id = -1
 
         labels_map = labels_map.transpose((1,2,0)).astype(np.uint8)
         
-        CPARTS.append(INDEP)
-        print (CPARTS)
         outer_loop_times = len(CPARTS) if show_composite_parts and any([x in self.composite_labels for y in CPARTS for x in y]) else 1
         
         image_copy = image.copy()
 
+        visited = []
         for outer_loop_idx in range(outer_loop_times):
             
-            visited = []
+            visited_cparts = []
             
             for seg_id in range(labels_map.shape[-1]):
                 
@@ -148,9 +147,13 @@ class FishDataset(Dataset):
                     if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
                         continue
                     else:
-                        visited.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
+                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / float(np.prod(labels_map.shape[:2]))
 
-                #cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
+                        if seg_mask_ratio > 0.2:
+                            visited_cparts.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
+                        else:
+                            continue
+                cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
                 
                 if largest_segment_id != -1 and seg_id == largest_segment_id:
                     continue
@@ -159,9 +162,14 @@ class FishDataset(Dataset):
                 seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
                 image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
             
-            missing_annotation_indices = set(range(len(CPARTS[outer_loop_idx]))) - set(visited)
+            missing_annotation_indices = set(range(len(CPARTS[outer_loop_idx]))) - set(visited_cparts)
             if len(missing_annotation_indices) > 0:
                 print ("Cannot find annotations for %s" % ", ".join([CPARTS[outer_loop_idx][x] for x in missing_annotation_indices])) 
+            
+                if len(missing_annotation_indices) == len(CPARTS[outer_loop_idx]):
+                    continue
+
+            visited.append(visited_cparts)
 
             cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
                             ), image)
