@@ -160,7 +160,7 @@ class FishDataset(IterableDataset):
                     if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
                         continue
                     else:
-                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / (255.0 * float(np.prod(labels_map.shape[:2])))
+                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / (255.0 * np.prod(labels_map.shape[:2]))
                         seg_mask_ratio = seg_mask_ratio / subset_ratio_denominator
                 
                         print ("%s mask ratio: %f" % (self.composite_labels[seg_id] + \
