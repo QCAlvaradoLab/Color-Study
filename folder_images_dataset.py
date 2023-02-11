@@ -3,6 +3,8 @@ import os
 
 import cv2
 import rawpy
+import numpy as np
+import shutil 
 
 from torch import nn 
 from torch.utils.data import Dataset
@@ -74,7 +76,7 @@ class FolderImages(Dataset):
 from resources import folder_dirs
 
 folder_datasets = []
-
+folder_names = set()
 for directory in folder_dirs:
     for dirs in glob.glob(directory):
         if os.path.isdir(dirs):
@@ -83,7 +85,15 @@ for directory in folder_dirs:
                 if dirs[-1] == "/":
                     dirs = dirs[:-1]
                 
-                obj = FolderImages(dirs.replace(str(Path(dirs).parents[1])+"/", ""), str(Path(dirs).parents[1]))
+                dir_name, folder_name = str(Path(dirs).parents[1])+"/", str(Path(dirs).parents[1])
+                
+                if folder_name in folder_names:
+                    folder1 = folder_name if dir_name is None else os.path.join(dir_name, folder_name)
+                    folder_name = folder_name + str(np.random.randint(1e5))
+                    folder2 = folder_name if dir_name is None else os.path.join(dir_name, folder_name)
+                    shutil.move(folder1, folder2)
+                
+                obj = FolderImages(dirs.replace(dir_name, ""), folder_name)
                 if len(obj)>0:
                     folder_datasets.append(obj)
 
