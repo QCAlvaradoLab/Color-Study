@@ -99,7 +99,7 @@ class FishDataset(IterableDataset):
             
             image = cv2.imread(image)
             
-            segment_array = np.zeros((*image.shape[:2], len(self.composite_labels))) #self.img_shape, self.img_shape
+            segment_array = np.zeros((self.img_shape, self.img_shape, len(self.composite_labels))) #*image.shape[:2]
             empty_indices = list(range(len(segment_array)))
             
             for idx in range(4, len(obj), 4):
@@ -111,10 +111,14 @@ class FishDataset(IterableDataset):
                 
                 organ_index = self.composite_labels.index(organ)
                 seg = segment_array[:, :, organ_index].astype(np.uint8) 
-                cv2.fillPoly(seg, [np.array(polygon).astype(np.int32)], 255) 
-                segment_array[:, :, organ_index] = seg #cv2.resize(seg, (self.img_shape, self.img_shape))
+
+                size_ratios = np.array([self.img_shape / float(image.shape[1]), self.img_shape / float(image.shape[0])]) 
+
+                cv2.fillPoly(seg, [np.array(polygon * size_ratios).astype(np.int32)], 255) 
+
+                segment_array[:, :, organ_index] = cv2.resize(seg, (self.img_shape, self.img_shape)) #seg #
             
-            image = image #cv2.resize(image, (self.img_shape, self.img_shape))
+            image = cv2.resize(image, (self.img_shape, self.img_shape)) #image #
 
             yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
@@ -153,6 +157,7 @@ class FishDataset(IterableDataset):
                      
                     try:
                         if subset_ratio_denominator == 1.0:
+                            seg_mask_ratio = 1.0 if seg_mask_ratio==0 else seg_mask_ratio
                             subset_ratio_denominator = seg_mask_ratio   
                     except NameError:
                         subset_ratio_denominator = 1.0
@@ -163,8 +168,9 @@ class FishDataset(IterableDataset):
                         seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / (255.0 * np.prod(labels_map.shape[:2]))
                         seg_mask_ratio = seg_mask_ratio / subset_ratio_denominator
                 
-                        print ("%s mask ratio: %f" % (self.composite_labels[seg_id] + \
-                                                        ("" if "whole_body" == self.composite_labels[seg_id] else " subset ratio wrt whole_body"), 
+                        print ("%s mask ratio wrt image: %f" % (self.composite_labels[seg_id] + \
+                                                        ("" if "whole_body" == self.composite_labels[seg_id] else (
+                                                        " subset ratio wrt whole_body" if subset_ratio_denominator!=1.0 else "")), 
                                                         seg_mask_ratio))
 
                         if seg_mask_ratio > self.min_segment_positivity_ratio:
