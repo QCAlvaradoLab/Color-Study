@@ -19,9 +19,21 @@ INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
 CPARTS.append(INDEP)
 CPARTS.insert(0, INIT)
 
+DATASET_TYPES = ["segmentation", "polygons"]
+DATASET_TYPES.extend(list(map(lambda s: \
+                        s + "/composite", DATASET_TYPES)))
+
 """
 IMG_TYPES = ['jpg', 'png', 'arw']
 IMG_TYPES.extend([x.upper() for x in IMG_TYPES])
+
+# PyTorch transform functions
+
+#JOINT_TRANSFORMS = ['CenterCrop', 'FiveCrop', 'Pad', 'RandomAffine', 'RandomCrop', 'RandomHorizontalFlip', 
+#                    'RandomVerticalFlip', 'RandomResizedCrop', 'RandomRotation', 'Resize', 'TenCrop']
+
+#IMG_TRANSFORMS = ['ColorJitter', 'Grayscale', 'RandomGrayscale']
+#IMG_FTRANSFORMS = ['adjust_gamma']
 """
 
 __all__ = ["colors", "CPARTS"] 

@@ -57,7 +57,6 @@ def display_composite_annotations(image, labels_map, composite_labels, min_posit
                     if seg_mask_ratio > min_positivity_ratio:
                         visited_cparts.append(CPARTS[outer_loop_idx].index(composite_labels[seg_id]))
                     else:
-                        print ("\n%s is too small wrt positivity ratio!\n" % composite_labels[seg_id])
                         continue
 
             cv2.imshow("fish_%s"%composite_labels[seg_id], labels_map[:,:,seg_id])
