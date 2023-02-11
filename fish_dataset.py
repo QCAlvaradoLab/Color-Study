@@ -1,5 +1,7 @@
 from folder_images_dataset import FolderImages
 
+import argparse
+
 import os
 import glob
 
@@ -31,6 +33,7 @@ CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_
 # Independent parts are ones without compositional overlap: whole_body contains these parts independently
 INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
 CPARTS.append(INDEP)
+CPARTS.insert(0, INIT)
 
 IMG_TYPES = ['jpg', 'png', 'arw']
 IMG_TYPES.extend([x.upper() for x in IMG_TYPES])
@@ -47,7 +50,8 @@ class FishDataset(Dataset):
     DATASET_TYPES.extend(list(map(lambda s: \
                             s + "/composite", DATASET_TYPES)))
 
-    def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", img_shape = 256):
+    def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", img_shape = 256, min_segment_positivity_ratio=0.0075): 
+        # min_segment_positivity_ratio is around 0.009 - 0.011 for eye (the smallest part)
         
         assert dataset_type in self.DATASET_TYPES
         
@@ -58,6 +62,7 @@ class FishDataset(Dataset):
         datasets = datasets_metadata["datasets"] 
        
         self.composite_labels = set()
+        self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.xy_pairs = []
 
         self.img_shape = img_shape
@@ -65,10 +70,12 @@ class FishDataset(Dataset):
         # Accepts single type of data only
         datasets = reversed(list(reversed([x for x in datasets if x["type"] == dataset_type])))
         
+        self.curated_images_count = 0
         for data in datasets:
-            
-            dataset_getter = getattr(self, "get_%s_data" % data["name"])(data["type"], data["folder"]) 
-            
+                
+            dataset_getter, dataset_count = getattr(self, "get_%s_data" % data["name"])(data["type"], data["folder"]) 
+            self.curated_images_count += dataset_count
+
             while True:
                 try:
                     image, segment = next(dataset_getter)
@@ -111,7 +118,7 @@ class FishDataset(Dataset):
                 
             yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=True, show_composite_parts=True):
+    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=False, show_composite_parts=True):
         
         alpha = 0.8
 
@@ -143,16 +150,29 @@ class FishDataset(Dataset):
             for seg_id in range(labels_map.shape[-1]):
                 
                 if outer_loop_times > 1:
-                    
+                     
+                    try:
+                        if subset_ratio_denominator == 1.0:
+                            subset_ratio_denominator = seg_mask_ratio   
+                    except NameError:
+                        subset_ratio_denominator = 1.0
+
                     if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
                         continue
                     else:
-                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / float(np.prod(labels_map.shape[:2]))
+                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / (255.0 * float(np.prod(labels_map.shape[:2])))
+                        seg_mask_ratio = seg_mask_ratio / subset_ratio_denominator
+                
+                        print ("%s mask ratio: %f" % (self.composite_labels[seg_id] + \
+                                                        ("" if "whole_body" == self.composite_labels[seg_id] else " subset ratio wrt whole_body"), 
+                                                        seg_mask_ratio))
 
-                        if seg_mask_ratio > 0.2:
+                        if seg_mask_ratio > self.min_segment_positivity_ratio:
                             visited_cparts.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
                         else:
                             continue
+                
+
                 cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
                 
                 if largest_segment_id != -1 and seg_id == largest_segment_id:
@@ -184,7 +204,7 @@ class FishDataset(Dataset):
 
         images = glob.glob(os.path.join(self.folder_path, path, '*.jpg'))
         labels = [x.replace(".jpg", ".txt") for x in images]
-        
+
         removable_indices = []
         for idx, (img, label) in enumerate(zip(images, labels)):
             if not (os.path.exists(img) and os.path.exists(label)):
@@ -193,6 +213,10 @@ class FishDataset(Dataset):
         for idx in reversed(removable_indices):
             del images[idx]
             del labels[idx]
+        
+        dataset_count = len(images)
+        
+        self.composite_labels = set(self.composite_labels)
         
         # get organ labels
         for txt_file in labels:
@@ -208,7 +232,7 @@ class FishDataset(Dataset):
         print ("Using %d labeled images!" % len(images))
         return_value_generator = self.get_coco_style_annotations(images, labels)
         
-        return return_value_generator
+        return return_value_generator, dataset_count
     
     def get_ml_training_set_data(self, dtype, path):
 
@@ -222,5 +246,9 @@ class FishDataset(Dataset):
         return torch.ones((5))
 
 if __name__ == "__main__":
+    
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--visualize", default="alvaradolab", help="Flag to visualize composite labels")
+    args = ap.parse_args()
 
     dataset = FishDataset(dataset_type="segmentation/composite")
