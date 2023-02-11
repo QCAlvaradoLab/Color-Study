@@ -13,33 +13,11 @@ from pprint import pprint
 
 import torch
 
-#from torch.utils.data import Dataset
 from torch.utils.data import IterableDataset, DataLoader
 
-from color_constants import colors
-from random import shuffle
-colors = {k: colors[k] for k in colors if \
-                any([x in colors for x in ["blue", "red", "cyan", "yellow", "green"]]) and \
-                not any([str(x) in colors for x in range(1,5)])}
-colors = list(colors.values())
-shuffle(colors)
-
-INIT = ['whole_body']
-
-# Composite parts: 
-# ventral_side seems like it needs to fully cover anal_fin and pectoral_fin from Google Search results on the topic
-# dorsal_side doesn't cover dorsal fin
-# operculum boundaries are outside head region
-CPARTS = [['ventral_side', 'anal_fin', 'pectoral_fin'], ['dorsal_side', 'dorsal_fin'], ['head', 'eye', 'operculum']]
-
-# Independent parts are ones without compositional overlap: whole_body contains these parts independently
-INDEP = ['humeral_blotch', 'pelvic_fin', 'caudal_fin']
-CPARTS.append(INDEP)
-CPARTS.insert(0, INIT)
-
-IMG_TYPES = ['jpg', 'png', 'arw']
-IMG_TYPES.extend([x.upper() for x in IMG_TYPES])
-
+from .visualize_composite_labels import display_composite_annotations
+from . import colors, CPARTS
+print (CPARTS)
 #JOINT_TRANSFORMS = ['CenterCrop', 'FiveCrop', 'Pad', 'RandomAffine', 'RandomCrop', 'RandomHorizontalFlip', 
 #                    'RandomVerticalFlip', 'RandomResizedCrop', 'RandomRotation', 'Resize', 'TenCrop']
 
@@ -124,86 +102,7 @@ class FishDataset(IterableDataset):
 
             yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-    def display_composite_annotations(self, image, labels_map, hide_whole_body_segment=False, show_composite_parts=True):
-        
-        alpha = 0.8
-
-        image = image.transpose((1,2,0)).astype(np.uint8)
-        #cv2.imshow("image", image)
-        
-        if hide_whole_body_segment:
-            largest_segment_id = np.argmax(labels_map.sum(axis=(1,2)))
-
-            if self.composite_labels[largest_segment_id] == "whole_body":
-                print ("\nIgnoring largest segment %s!" % self.composite_labels[largest_segment_id])
-            else:
-                print ("\nCannot find whole body segment!")
-                largest_segment_id = -1
-        else:
-            largest_segment_id = 0
-
-        labels_map = labels_map.transpose((1,2,0)).astype(np.uint8)
-        
-        outer_loop_times = len(CPARTS) if show_composite_parts and any([x in self.composite_labels for y in CPARTS for x in y]) else 1
-        
-        image_copy = image.copy()
-
-        visited = []
-        for outer_loop_idx in range(outer_loop_times):
-            
-            visited_cparts = []
-            
-            for seg_id in range(labels_map.shape[-1]):
-                
-                if outer_loop_times > 1:
-                     
-                    try:
-                        if subset_ratio_denominator == 1.0:
-                            seg_mask_ratio = 1.0 if seg_mask_ratio==0 else seg_mask_ratio
-                            subset_ratio_denominator = seg_mask_ratio   
-                    except NameError:
-                        subset_ratio_denominator = 1.0
-
-                    if self.composite_labels[seg_id] not in CPARTS[outer_loop_idx]:
-                        continue
-                    else:
-                        seg_mask_ratio = np.sum(labels_map[:,:,seg_id]) / (255.0 * np.prod(labels_map.shape[:2]))
-                        seg_mask_ratio = seg_mask_ratio / subset_ratio_denominator
-                
-                        print ("%s mask ratio wrt image: %f" % (self.composite_labels[seg_id] + \
-                                                        ("" if "whole_body" == self.composite_labels[seg_id] else (
-                                                        " subset ratio wrt whole_body" if subset_ratio_denominator!=1.0 else "")), 
-                                                        seg_mask_ratio))
-
-                        if seg_mask_ratio > self.min_segment_positivity_ratio:
-                            visited_cparts.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
-                        else:
-                            print ("\n%s is too small wrt positivity ratio!\n" % self.composite_labels[seg_id])
-                            continue
-
-                cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
-                
-                seg_image = np.expand_dims(labels_map[:,:,seg_id], axis=-1).repeat(3, axis=-1) * np.array(colors[seg_id]).astype(np.uint8)
-                seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
-                image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
-            
-            missing_annotation_indices = set(range(len(CPARTS[outer_loop_idx]))) - set(visited_cparts)
-            if len(missing_annotation_indices) > 0:
-                print ("Cannot find annotations for %s" % ", ".join([CPARTS[outer_loop_idx][x] for x in missing_annotation_indices])) 
-            
-                if len(missing_annotation_indices) == len(CPARTS[outer_loop_idx]):
-                    continue
-
-            visited.append(visited_cparts)
-
-            cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
-                            ), image)
-            cv2.waitKey()
-            
-            image = image_copy
-
-        cv2.destroyAllWindows()
-    
+   
     def get_segmentation_annotations(self, images, labels):
         
         pass
@@ -275,4 +174,4 @@ if __name__ == "__main__":
     #                        num_workers=1, batch_size=1)
 
     for image, segment in dataset:
-        dataset.display_composite_annotations(image, segment)
+        display_composite_annotations(image, segment, dataset.composite_labels, dataset.min_segment_positivity_ratio)
