@@ -99,7 +99,7 @@ class FishDataset(IterableDataset):
             
             image = cv2.imread(image)
             
-            segment_array = np.zeros((self.img_shape, self.img_shape, len(self.composite_labels))) #*image.shape[:2]
+            segment_array = np.zeros((self.img_shape, self.img_shape, len(self.composite_labels))) 
             empty_indices = list(range(len(segment_array)))
             
             for idx in range(4, len(obj), 4):
@@ -115,10 +115,12 @@ class FishDataset(IterableDataset):
                 size_ratios = np.array([self.img_shape / float(image.shape[1]), self.img_shape / float(image.shape[0])]) 
 
                 cv2.fillPoly(seg, [np.array(polygon * size_ratios).astype(np.int32)], 255) 
+                segment_array[:, :, organ_index] = seg 
 
-                segment_array[:, :, organ_index] = cv2.resize(seg, (self.img_shape, self.img_shape)) #seg #
-            
-            image = cv2.resize(image, (self.img_shape, self.img_shape)) #image #
+                if (seg.sum() / 255.0) < (self.min_segment_positivity_ratio * self.img_shape * self.img_shape):
+                    seg.fill(-1)
+                 
+            image = cv2.resize(image, (self.img_shape, self.img_shape))
 
             yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
@@ -176,14 +178,11 @@ class FishDataset(IterableDataset):
                         if seg_mask_ratio > self.min_segment_positivity_ratio:
                             visited_cparts.append(CPARTS[outer_loop_idx].index(self.composite_labels[seg_id]))
                         else:
+                            print ("\n%s is too small wrt positivity ratio!\n" % self.composite_labels[seg_id])
                             continue
-                
 
                 cv2.imshow("fish_%s"%self.composite_labels[seg_id], labels_map[:,:,seg_id])
                 
-                if largest_segment_id != -1 and seg_id == largest_segment_id:
-                    continue
-
                 seg_image = np.expand_dims(labels_map[:,:,seg_id], axis=-1).repeat(3, axis=-1) * np.array(colors[seg_id]).astype(np.uint8)
                 seg_image = cv2.addWeighted(image, 1, seg_image, 1, 1.0)
                 image = cv2.addWeighted(image, 1-alpha, seg_image, alpha, 1.0)
@@ -200,9 +199,14 @@ class FishDataset(IterableDataset):
             cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
                             ), image)
             cv2.waitKey()
-            cv2.destroyAllWindows()
             
             image = image_copy
+
+        cv2.destroyAllWindows()
+    
+    def get_segmentation_annotations(self, images, labels):
+        
+        pass
 
     def get_alvaradolab_data(self, dtype, path):
         
@@ -243,6 +247,17 @@ class FishDataset(IterableDataset):
     def get_ml_training_set_data(self, dtype, path):
 
         assert dtype == "segmentation/composite"
+        
+        dataset_dirs = [x for x in glob.glob(os.path.join(self.folder_path, path, "*")) \
+                            if os.path.isdir(x)]
+
+        data = {}
+        for dirname in dataset_dirs:
+            pass
+        
+        #exit()
+
+        #fish_folders = 
 
     #def __len__(self):
     #    return self.curated_images_count 
@@ -260,5 +275,4 @@ if __name__ == "__main__":
     #                        num_workers=1, batch_size=1)
 
     for image, segment in dataset:
-        print (image.shape, segment.shape)
         dataset.display_composite_annotations(image, segment)
