@@ -64,7 +64,7 @@ class FishDataset(IterableDataset):
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
 
     def __iter__(self):         
-        return self.dataset_generators[0]
+        return self.dataset_generators[1]
 
 if __name__ == "__main__":
     

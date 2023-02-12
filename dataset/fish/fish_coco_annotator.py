@@ -33,10 +33,10 @@ def get_coco_style_annotations(coco_images, coco_txt, composite_labels, img_shap
             size_ratios = np.array([img_shape / float(image.shape[1]), img_shape / float(image.shape[0])]) 
 
             cv2.fillPoly(seg, [np.array(polygon * size_ratios).astype(np.int32)], 255) 
-            segment_array[:, :, organ_index] = seg 
 
-            if (seg.sum() / 255.0) < (min_segment_positivity_ratio * img_shape * img_shape):
+            if seg.sum() < (min_segment_positivity_ratio * img_shape * img_shape):
                 seg.fill(-1)
+            segment_array[:, :, organ_index] = seg 
              
         image = cv2.resize(image, (img_shape, img_shape))
 
