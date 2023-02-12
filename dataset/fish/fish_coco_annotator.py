@@ -19,7 +19,6 @@ def get_coco_style_annotations(coco_images, coco_txt, composite_labels, img_shap
         image = cv2.imread(image)
         
         segment_array = np.zeros((img_shape, img_shape, len(composite_labels))) 
-        empty_indices = list(range(len(segment_array)))
         
         for idx in range(4, len(obj), 4):
             organ = obj[idx]

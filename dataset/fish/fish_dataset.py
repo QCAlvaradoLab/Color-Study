@@ -17,6 +17,7 @@ from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
 
 from .fish_coco_annotator import get_alvaradolab_data
+from .fish_segmentation import get_ml_training_set_data
 
 import traceback
 
@@ -46,7 +47,8 @@ class FishDataset(IterableDataset):
         self.curated_images_count, self.dataset_generators = 0, []
         
         self.get_alvaradolab_data = get_alvaradolab_data
-   
+        self.get_ml_training_set_data = get_ml_training_set_data
+
         for data in datasets:
             
             dataset_method = "get_%s_data" % data["name"]
@@ -60,24 +62,6 @@ class FishDataset(IterableDataset):
             except Exception as e:
                 traceback.print_exc()
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
-
-    def get_ml_training_set_data(self, dtype, path):
-
-        assert dtype == "segmentation/composite"
-        
-        dataset_dirs = [x for x in glob.glob(os.path.join(self.folder_path, path, "*")) \
-                            if os.path.isdir(x)]
-
-        data = {}
-        for dirname in dataset_dirs:
-            pass
-        
-        #exit()
-
-        #fish_folders = 
-
-    #def __len__(self):
-    #    return self.curated_images_count 
 
     def __iter__(self):         
         return self.dataset_generators[0]
