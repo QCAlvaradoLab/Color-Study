@@ -34,6 +34,10 @@ def display_composite_annotations(image, labels_map, composite_labels, min_posit
         
         for seg_id in range(labels_map.shape[-1]):
             
+            if -1 in labels_map[:,:,seg_id]:
+                print ("Label %s will not be learnt by gradient descent algorithm!" % composite_labels[seg_id])
+                continue
+
             if outer_loop_times > 1:
                  
                 try:

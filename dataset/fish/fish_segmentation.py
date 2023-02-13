@@ -1,23 +1,32 @@
-from pprint import pprint
 import os
 import glob
 
+import rawpy
 import cv2
 import numpy as np
+
+def imread(file_path):
+    
+    if ".arw" not in file_path.lower():
+        return cv2.imread(file_path)
+    else:
+        img = rawpy.imread(file_path) 
+        img = img.postprocess() 
+        return cv2.cvtColor(img, cv2.COLOR_RGB2BGR) 
 
 def get_ml_training_set_annotations(segmentation_data, composite_labels, img_shape, min_segment_positivity_ratio):
 
     for data_key in segmentation_data.keys():
         
         image_path, segments_paths = segmentation_data[data_key]["image"], segmentation_data[data_key]["segments"]
-        image = cv2.imread(image_path)
+        image = imread(image_path)
         
         segment_array = np.zeros((img_shape, img_shape, len(composite_labels))) 
         
         for organ_index, organ in enumerate(composite_labels):
             
             try:
-                segment = cv2.imread(segments_paths[organ])
+                segment = imread(segments_paths[organ])
             
                 segment = cv2.resize(segment, (img_shape, img_shape))
                 segment = cv2.cvtColor(segment, cv2.COLOR_BGR2GRAY)
@@ -33,12 +42,14 @@ def get_ml_training_set_annotations(segmentation_data, composite_labels, img_sha
             
             except Exception:
                 segment_array[:, :, organ_index].fill(-1) 
-
+        
         image = cv2.resize(image, (img_shape, img_shape))
 
         yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
 def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_shape, min_segment_positivity_ratio):
+    
+    #TODO: 9 missing images from dataset!
 
     assert dtype == "segmentation/composite"
     
@@ -46,21 +57,23 @@ def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_sha
                 if os.path.isdir(x)]
     
     data = {}
-
     for directory in folders:
         
         dir_folders = glob.glob(os.path.join(directory, "*"))
         
         images = glob.glob(os.path.join(directory, 'original image/*'))
-        
         for image_path in images:
-            fname = "/".join(image_path.split('/')[-2:])
-            search_key = fname.split('/')[-1].split('.')[0]
+            fname = "/".join(image_path.split('/')[-3:])
+            search_key = '.'.join(fname.split('/')[-1].split('.')[:-1])
             data_index = os.path.join(directory.split('/')[-1], search_key)
             
             segments_path = glob.glob(os.path.join(directory, "*", search_key + "*"))
             organs = [x.split('/')[-2] for x in segments_path]
             organs.remove("original image")
+            
+            if not os.path.exists(image_path):
+                #TODO print (image_path)
+                continue
 
             segment_paths = {}
             for organ in organs:
@@ -70,23 +83,20 @@ def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_sha
                 if not organ in composite_labels:
                     composite_labels.append(organ)
                 if len(ann_paths) == 1:
-                    segment_paths[organ] = ann_paths[0]    
+                    if os.path.exists(ann_paths[0]):
+                        segment_paths[organ] = ann_paths[0]  
+            
+            if len(segment_paths) > 0:
+                data[data_index] = {"image": image_path, \
+                                    "segments": segment_paths}
+            #TODO 
+            '''
+            else:
+                print (image_path, segment_paths)
+        print (len(data))
+            '''
 
-            data[data_index] = {"image": image_path, \
-                                "segments": segment_paths}
-    data_keys = list(data.keys())
-
-    removable_keys = []
-    for idx, key in enumerate(data_keys):
-        img, anns = data[key]["image"], data[key]["segments"] 
-        if not (os.path.exists(img) and any([os.path.exists(anns[organ]) for organ in anns.keys()])):
-            removable_keys.append([idx, key])
-    
-    for key in removable_keys:
-        del data[key[1]]
-        del data_keys[key[0]]
-    
-    dataset_count = len(data_keys)
+    dataset_count = len(data)
     
     print ("Using %d labeled images!" % dataset_count)
     return_value_generator = get_ml_training_set_annotations(data, composite_labels, img_shape, min_segment_positivity_ratio)
