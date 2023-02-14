@@ -16,13 +16,14 @@ from torch.utils.data import IterableDataset, DataLoader
 
 from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
+from . import composite_labels
 
 from .fish_coco_annotator import get_alvaradolab_data
 from .fish_segmentation import get_ml_training_set_data
 
 import traceback
 
-import tracemalloc
+#TODO ChainDataset
 
 class FishDataset(IterableDataset):
 
@@ -30,6 +31,8 @@ class FishDataset(IterableDataset):
                     img_shape = 256, min_segment_positivity_ratio=0.0075): 
         # min_segment_positivity_ratio is around 0.009 - 0.011 for eye (the smallest part)
         
+        global composite_labels
+
         assert dataset_type in DATASET_TYPES
         
         with open(config_file, "r") as f:
@@ -51,26 +54,28 @@ class FishDataset(IterableDataset):
         
         self.get_alvaradolab_data = get_alvaradolab_data
         self.get_ml_training_set_data = get_ml_training_set_data
-
+        
+        self.datasets, self.dataset_cumsum_lengths = [], []
         for data in datasets:
             
             dataset_method = "get_%s_data" % data["name"]
             
             try:
-                tracemalloc.start()
-                dataset_getter, dataset_count, self.composite_labels = getattr(self, dataset_method)(data["type"], data["folder"],
+                dataset = getattr(self, dataset_method)(data["type"], data["folder"],
                                                                                 self.composite_labels, self.folder_path, 
                                                                                 img_shape, min_segment_positivity_ratio) 
-                print(tracemalloc.get_traced_memory())
-                tracemalloc.stop()
+                
+                if len(self.dataset_cumsum_lengths) == 0:
+                    self.dataset_cumsum_lengths.append(len(dataset))
+                else:
+                    self.dataset_cumsum_lengths.append(self.dataset_cumsum_lengths[-1] + len(dataset))
 
-                self.curated_images_count += dataset_count
-                self.dataset_generators.append(dataset_getter)
+                self.datasets.append(dataset)
+            
             except Exception as e:
                 traceback.print_exc()
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
         
-        self.dataset_cumsum_lengths = np.cumsum([len(dataset) for dataset in self.dataset_generators])
         self.current_dataset_id = 0
 
     def __len__(self):
