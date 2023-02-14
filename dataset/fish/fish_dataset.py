@@ -11,6 +11,7 @@ from pprint import pprint
 
 import torch
 
+from torch.utils.data import Dataset
 from torch.utils.data import IterableDataset, DataLoader
 
 from . import display_composite_annotations
@@ -20,6 +21,8 @@ from .fish_coco_annotator import get_alvaradolab_data
 from .fish_segmentation import get_ml_training_set_data
 
 import traceback
+
+import tracemalloc
 
 class FishDataset(IterableDataset):
 
@@ -54,17 +57,39 @@ class FishDataset(IterableDataset):
             dataset_method = "get_%s_data" % data["name"]
             
             try:
+                tracemalloc.start()
                 dataset_getter, dataset_count, self.composite_labels = getattr(self, dataset_method)(data["type"], data["folder"],
                                                                                 self.composite_labels, self.folder_path, 
                                                                                 img_shape, min_segment_positivity_ratio) 
+                print(tracemalloc.get_traced_memory())
+                tracemalloc.stop()
+
                 self.curated_images_count += dataset_count
                 self.dataset_generators.append(dataset_getter)
             except Exception as e:
                 traceback.print_exc()
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
+        
+        self.dataset_cumsum_lengths = np.cumsum([len(dataset) for dataset in self.dataset_generators])
+        self.current_dataset_id = 0
 
-    def __iter__(self):         
-        return self.dataset_generators[1]
+    def __len__(self):
+        return self.dataset_cumsum_lengths[-1]
+
+    def __getitem__(self, idx):         
+        
+        if idx > self.dataset_cumsum_lengths[self.current_dataset_id]:
+            self.current_dataset_id += 1
+
+        dataset = self.dataset_generators[self.current_dataset_id]
+        
+        if self.current_dataset_id == 0:
+            prev_id = 0
+        else:
+            prev_id = self.current_dataset_id - 1
+
+        data_index = idx - (self.dataset_cumsum_lengths[self.current_dataset_id] - self.dataset_cumsum_lengths[prev_id])
+        return dataset[data_index]
 
 if __name__ == "__main__":
     

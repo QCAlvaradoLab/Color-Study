@@ -5,6 +5,8 @@ import rawpy
 import cv2
 import numpy as np
 
+from . import InMemoryDataset
+
 def imread(file_path):
     
     if ".arw" not in file_path.lower():
@@ -15,7 +17,8 @@ def imread(file_path):
         return cv2.cvtColor(img, cv2.COLOR_RGB2BGR) 
 
 def get_ml_training_set_annotations(segmentation_data, composite_labels, img_shape, min_segment_positivity_ratio):
-
+    
+    data = []
     for data_key in segmentation_data.keys():
         
         image_path, segments_paths = segmentation_data[data_key]["image"], segmentation_data[data_key]["segments"]
@@ -45,7 +48,9 @@ def get_ml_training_set_annotations(segmentation_data, composite_labels, img_sha
         
         image = cv2.resize(image, (img_shape, img_shape))
 
-        yield image.transpose((2,0,1)), segment_array.transpose((2,0,1))
+        data.append({"image": image.transpose((2,0,1)), "segments": segment_array.transpose((2,0,1))})
+
+    return data
 
 def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_shape, min_segment_positivity_ratio):
     
@@ -99,7 +104,8 @@ def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_sha
     dataset_count = len(data)
     
     print ("Using %d labeled images!" % dataset_count)
-    return_value_generator = get_ml_training_set_annotations(data, composite_labels, img_shape, min_segment_positivity_ratio)
+    data = get_ml_training_set_annotations(data, composite_labels, img_shape, min_segment_positivity_ratio)
+    in_memory_dataset = InMemorySegmentationDataset(data)
     
-    return return_value_generator, dataset_count, composite_labels
+    return in_memory_dataset, dataset_count, composite_labels
 
