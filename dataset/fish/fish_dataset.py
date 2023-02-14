@@ -16,7 +16,7 @@ from torch.utils.data import IterableDataset, DataLoader
 
 from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
-from . import composite_labels
+
 
 from .fish_coco_annotator import get_alvaradolab_data
 from .fish_segmentation import get_ml_training_set_data
@@ -41,7 +41,6 @@ class FishDataset(IterableDataset):
         self.folder_path = datasets_metadata["folder_path"] 
         datasets = datasets_metadata["datasets"] 
        
-        self.composite_labels = list()
         self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.xy_pairs = []
 
@@ -62,8 +61,8 @@ class FishDataset(IterableDataset):
             
             try:
                 dataset = getattr(self, dataset_method)(data["type"], data["folder"],
-                                                                                self.composite_labels, self.folder_path, 
-                                                                                img_shape, min_segment_positivity_ratio) 
+                                                        self.folder_path, 
+                                                        img_shape, min_segment_positivity_ratio) 
                 
                 if len(self.dataset_cumsum_lengths) == 0:
                     self.dataset_cumsum_lengths.append(len(dataset))
@@ -97,6 +96,8 @@ class FishDataset(IterableDataset):
         return dataset[data_index]
 
 if __name__ == "__main__":
+   
+    from . import composite_labels 
     
     ap = argparse.ArgumentParser()
     ap.add_argument("--visualize", default="alvaradolab", help="Flag to visualize composite labels")
@@ -106,4 +107,4 @@ if __name__ == "__main__":
     #                        num_workers=1, batch_size=1)
 
     for image, segment in dataset:
-        display_composite_annotations(image, segment, dataset.composite_labels, dataset.min_segment_positivity_ratio)
+        display_composite_annotations(image, segment, composite_labels, dataset.min_segment_positivity_ratio)

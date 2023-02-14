@@ -92,7 +92,7 @@ class CocoSegmentationDataset(Dataset):
              
         return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-def get_alvaradolab_data(dtype, path, composite_labels, folder_path, img_shape, min_segment_positivity_ratio):
+def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio):
     
     #tracemalloc.start()
     assert dtype == "segmentation/composite"

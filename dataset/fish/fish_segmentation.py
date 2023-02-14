@@ -5,7 +5,9 @@ import rawpy
 import cv2
 import numpy as np
 
-from . import InMemoryDataset
+from torch.utils.data import Dataset
+
+from . import composite_labels
 
 def imread(file_path):
     
@@ -16,29 +18,41 @@ def imread(file_path):
         img = img.postprocess() 
         return cv2.cvtColor(img, cv2.COLOR_RGB2BGR) 
 
-def get_ml_training_set_annotations(segmentation_data, composite_labels, img_shape, min_segment_positivity_ratio):
-    
-    data = []
-    for data_key in segmentation_data.keys():
+class SegmentationDataset(Dataset):
+
+    def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio): 
         
-        image_path, segments_paths = segmentation_data[data_key]["image"], segmentation_data[data_key]["segments"]
+        self.segmentation_data = segmentation_data
+        self.segmentation_keys = list(segmentation_data.keys())
+        self.img_shape = img_shape 
+        self.min_segment_positivity_ratio = min_segment_positivity_ratio
+
+    def __len__(self):
+        return len(self.segmentation_keys)
+
+    def __getitem__(self, idx):
+        
+        data_key = self.segmentation_keys[idx]
+        
+        image_path, segments_paths = self.segmentation_data[data_key]["image"], self.segmentation_data[data_key]["segments"]
         image = imread(image_path)
+        image = cv2.resize(image, (img_shape, img_shape))
         
-        segment_array = np.zeros((img_shape, img_shape, len(composite_labels))) 
+        segment_array = np.zeros((self.img_shape, self.img_shape, len(composite_labels))) 
         
         for organ_index, organ in enumerate(composite_labels):
             
             try:
                 segment = imread(segments_paths[organ])
             
-                segment = cv2.resize(segment, (img_shape, img_shape))
+                segment = cv2.resize(segment, (self.img_shape, self.img_shape))
                 segment = cv2.cvtColor(segment, cv2.COLOR_BGR2GRAY)
                 segment[segment > 245] = 0
                 segment[segment != 0] = 255
                 
                 area_of_segment = segment.sum() / 255.0
                 
-                if area_of_segment * 255 < (min_segment_positivity_ratio * img_shape * img_shape):
+                if area_of_segment * 255 < (self.min_segment_positivity_ratio * self.img_shape * self.img_shape):
                     segment.fill(-1)
                 
                 segment_array[:, :, organ_index] = segment 
@@ -46,15 +60,13 @@ def get_ml_training_set_annotations(segmentation_data, composite_labels, img_sha
             except Exception:
                 segment_array[:, :, organ_index].fill(-1) 
         
-        image = cv2.resize(image, (img_shape, img_shape))
+        return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-        data.append({"image": image.transpose((2,0,1)), "segments": segment_array.transpose((2,0,1))})
-
-    return data
-
-def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_shape, min_segment_positivity_ratio):
+def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio):
     
     #TODO: 9 missing images from dataset!
+
+    global composite_labels 
 
     assert dtype == "segmentation/composite"
     
@@ -87,6 +99,7 @@ def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_sha
                 organ = organ.replace(" ", "_")
                 if not organ in composite_labels:
                     composite_labels.append(organ)
+
                 if len(ann_paths) == 1:
                     if os.path.exists(ann_paths[0]):
                         segment_paths[organ] = ann_paths[0]  
@@ -94,18 +107,8 @@ def get_ml_training_set_data(dtype, path, composite_labels, folder_path, img_sha
             if len(segment_paths) > 0:
                 data[data_index] = {"image": image_path, \
                                     "segments": segment_paths}
-            #TODO 
-            '''
-            else:
-                print (image_path, segment_paths)
-        print (len(data))
-            '''
 
-    dataset_count = len(data)
+    print ("Using %d labeled images!" % len(data))
+    dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio)
     
-    print ("Using %d labeled images!" % dataset_count)
-    data = get_ml_training_set_annotations(data, composite_labels, img_shape, min_segment_positivity_ratio)
-    in_memory_dataset = InMemorySegmentationDataset(data)
-    
-    return in_memory_dataset, dataset_count, composite_labels
-
+    return dataset
