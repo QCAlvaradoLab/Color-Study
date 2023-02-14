@@ -1,0 +1,10 @@
+Dataset metadata:
+
+alvaradolab:
+    
+    Annotated Photos: few missing organs (2-4 per fish)
+    Week 6: One organ per image - random choice
+
+ml_training_set:
+    
+    all composite organs present for most images
