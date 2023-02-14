@@ -7,12 +7,9 @@ import json
 import cv2
 import numpy as np
 
-from pprint import pprint 
-
 import torch
 
-from torch.utils.data import Dataset
-from torch.utils.data import IterableDataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
@@ -25,7 +22,7 @@ import traceback
 
 #TODO ChainDataset
 
-class FishDataset(IterableDataset):
+class FishDataset(Dataset):
 
     def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", 
                     img_shape = 256, min_segment_positivity_ratio=0.0075): 
@@ -82,10 +79,10 @@ class FishDataset(IterableDataset):
 
     def __getitem__(self, idx):         
         
-        if idx > self.dataset_cumsum_lengths[self.current_dataset_id]:
+        while idx > self.dataset_cumsum_lengths[self.current_dataset_id]:
             self.current_dataset_id += 1
 
-        dataset = self.dataset_generators[self.current_dataset_id]
+        dataset = self.datasets[self.current_dataset_id]
         
         if self.current_dataset_id == 0:
             prev_id = 0
@@ -93,6 +90,7 @@ class FishDataset(IterableDataset):
             prev_id = self.current_dataset_id - 1
 
         data_index = idx - (self.dataset_cumsum_lengths[self.current_dataset_id] - self.dataset_cumsum_lengths[prev_id])
+        
         return dataset[data_index]
 
 if __name__ == "__main__":
@@ -106,5 +104,6 @@ if __name__ == "__main__":
     dataset = FishDataset(dataset_type="segmentation/composite") #DataLoader(, 
     #                        num_workers=1, batch_size=1)
 
-    for image, segment in dataset:
+    for data in dataset:
+        image, segment = data
         display_composite_annotations(image, segment, composite_labels, dataset.min_segment_positivity_ratio)

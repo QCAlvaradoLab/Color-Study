@@ -22,6 +22,8 @@ class CocoSegmentationDataset(Dataset):
         
         assert ann_format in ["xywh", "xyxy"] and len(coco_images) == len(coco_txt)
         
+        self.img_shape = img_shape
+        self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.image_paths = coco_images
         self.polygons = []
 
@@ -73,12 +75,12 @@ class CocoSegmentationDataset(Dataset):
         image_path, polygons = self.image_paths[idx], self.polygons[idx]
         
         image = cv2.imread(image_path)
-        image = cv2.resize(image, (img_shape, img_shape))
+        image = cv2.resize(image, (self.img_shape, self.img_shape))
 
-        segment_array = np.zeros((img_shape, img_shape, len(composite_labels))) 
+        segment_array = np.zeros((self.img_shape, self.img_shape, len(composite_labels))) 
         
         for poly in polygons:
-            organ, polygon = poly.keys()[0], poly.values()[0]
+            organ, polygon = list(poly.keys())[0], list(poly.values())[0]
             
             organ_index = composite_labels.index(organ)
             seg = segment_array[:, :, organ_index].astype(np.uint8) 
