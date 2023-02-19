@@ -16,12 +16,13 @@ import tracemalloc
 
 class CocoSegmentationDataset(Dataset):
     
-    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, ann_format="xyxy"):
+    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, organs=None, ann_format="xyxy"):
         
         global composite_labels
         
         assert ann_format in ["xywh", "xyxy"] and len(coco_images) == len(coco_txt)
         
+        self.organs = organs
         self.img_shape = img_shape
         self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.image_paths = coco_images
@@ -48,7 +49,11 @@ class CocoSegmentationDataset(Dataset):
             for idx in range(4, len(obj), 4):
                 organ = obj[idx]
                 organ.replace(" ", "_")
+                
                 if not organ in composite_labels:
+                    if not organs is None:
+                        if not organ in organs:
+                            continue
                     composite_labels.append(organ)
 
                 area_of_poly = float(obj[idx+1])
@@ -77,7 +82,8 @@ class CocoSegmentationDataset(Dataset):
         image = cv2.imread(image_path)
         image = cv2.resize(image, (self.img_shape, self.img_shape))
 
-        segment_array = np.zeros((self.img_shape, self.img_shape, len(composite_labels))) 
+        num_segments = len(composite_labels) if self.organs is None else len(self.organs)
+        segment_array = np.zeros((self.img_shape, self.img_shape, num_segments)) 
         
         for poly in polygons:
             organ, polygon = list(poly.keys())[0], list(poly.values())[0]
@@ -94,7 +100,7 @@ class CocoSegmentationDataset(Dataset):
              
         return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio):
+def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, organs=None):
     
     #tracemalloc.start()
     assert dtype == "segmentation/composite"
@@ -111,7 +117,7 @@ def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positi
         del images[idx]
         del labels[idx]
 
-    dataset = CocoSegmentationDataset(images, labels, img_shape, min_segment_positivity_ratio)
+    dataset = CocoSegmentationDataset(images, labels, img_shape, min_segment_positivity_ratio, organs=organs)
     print ("Using %d labeled images!" % len(dataset))
     
     """

@@ -25,7 +25,7 @@ import traceback
 class FishDataset(Dataset):
 
     def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", 
-                    img_shape = 256, min_segment_positivity_ratio=0.0075): 
+                    img_shape = 256, min_segment_positivity_ratio=0.0075, organs=["whole_body"]): 
         # min_segment_positivity_ratio is around 0.009 - 0.011 for eye (the smallest part)
         
         global composite_labels
@@ -59,7 +59,8 @@ class FishDataset(Dataset):
             try:
                 dataset = getattr(self, dataset_method)(data["type"], data["folder"],
                                                         self.folder_path, 
-                                                        img_shape, min_segment_positivity_ratio) 
+                                                        img_shape, min_segment_positivity_ratio,
+                                                        organs=organs) 
                 
                 if len(self.dataset_cumsum_lengths) == 0:
                     self.dataset_cumsum_lengths.append(len(dataset))

@@ -27,7 +27,6 @@ def display_composite_annotations(image, labels_map, composite_labels, min_posit
     
     image_copy = image.copy()
 
-    visited = []
     for outer_loop_idx in range(outer_loop_times):
         
         visited_cparts = []
@@ -72,11 +71,9 @@ def display_composite_annotations(image, labels_map, composite_labels, min_posit
         missing_annotation_indices = set(range(len(CPARTS[outer_loop_idx]))) - set(visited_cparts)
         if len(missing_annotation_indices) > 0:
             print ("Cannot find annotations for %s" % ", ".join([CPARTS[outer_loop_idx][x] for x in missing_annotation_indices])) 
-        
-            if len(missing_annotation_indices) == len(CPARTS[outer_loop_idx]):
+            
+            if all([x==y for x, y in zip(sorted(missing_annotation_indices), range(len(CPARTS[outer_loop_idx])))]):
                 continue
-
-        visited.append(visited_cparts)
 
         cv2.imshow("fish_%s"%( "all_parts" if outer_loop_times == 1 else ", ".join(CPARTS[outer_loop_idx])
                         ), image)

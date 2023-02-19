@@ -20,12 +20,13 @@ def imread(file_path):
 
 class SegmentationDataset(Dataset):
 
-    def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio): 
+    def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio, organs=None): 
         
         self.segmentation_data = segmentation_data
         self.segmentation_keys = list(segmentation_data.keys())
         self.img_shape = img_shape 
         self.min_segment_positivity_ratio = min_segment_positivity_ratio
+        self.organs = organs 
 
     def __len__(self):
         return len(self.segmentation_keys)
@@ -38,7 +39,8 @@ class SegmentationDataset(Dataset):
         image = imread(image_path)
         image = cv2.resize(image, (img_shape, img_shape))
         
-        segment_array = np.zeros((self.img_shape, self.img_shape, len(composite_labels))) 
+        num_segments = len(composite_labels) if self.organs is None else len(self.organs)
+        segment_array = np.zeros((self.img_shape, self.img_shape, num_segments)) 
         
         for organ_index, organ in enumerate(composite_labels):
             
@@ -62,7 +64,7 @@ class SegmentationDataset(Dataset):
         
         return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio):
+def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, organs=None):
     
     #TODO: 9 missing images from dataset!
 
@@ -85,15 +87,15 @@ def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_po
             data_index = os.path.join(directory.split('/')[-1], search_key)
             
             segments_path = glob.glob(os.path.join(directory, "*", search_key + "*"))
-            organs = [x.split('/')[-2] for x in segments_path]
-            organs.remove("original image")
+            segments = [x.split('/')[-2] for x in segments_path]
+            segments.remove("original image")
             
             if not os.path.exists(image_path):
                 #TODO print (image_path)
                 continue
 
             segment_paths = {}
-            for organ in organs:
+            for organ in segments:
                 ann_paths = glob.glob(os.path.join(directory, organ, search_key + "*")) 
                 
                 organ = organ.replace(" ", "_")
@@ -109,6 +111,6 @@ def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_po
                                     "segments": segment_paths}
 
     print ("Using %d labeled images!" % len(data))
-    dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio)
+    dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio, organs=organs)
     
     return dataset
