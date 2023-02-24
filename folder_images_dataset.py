@@ -46,7 +46,7 @@ class FolderImages(Dataset):
     def __str__(self):
         if self.data_dir:
             folder_name = self.folder.replace(self.data_dir, "")
-        return "Folder: %s #Images: %d" % (folder_name, len(self.images))
+        return "Data Dir: %s Folder: %s #Images: %d" % (self.data_dir, folder_name, len(self.images))
 
     def __getitem__(self, idx):
         try:
@@ -73,11 +73,11 @@ class FolderImages(Dataset):
 
         return img
 
-from resources import folder_dirs
+from resources import folder_dirs, illumination_dirs
 
 folder_datasets = []
 folder_names = set()
-for directory in folder_dirs:
+for directory in illumination_dirs: #folder_dirs:
     for dirs in glob.glob(directory):
         if os.path.isdir(dirs):
             # Remove all segmentation masks

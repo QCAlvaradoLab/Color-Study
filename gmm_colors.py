@@ -330,8 +330,8 @@ kwargs.update({x: bool(kwargs[x].replace("False", "")) for x in kwargs.keys() if
 
 if __name__ == '__main__':
     
-    # images_dir = "../images/"
-    # datasets = [FolderImages(images_dir)]
-    
+    #print ("Using folders:")
+    #print ([str(x) for x in folder_datasets])
+
     color_model = GMMColors(folder_datasets, **kwargs) 
     color_model.train()
