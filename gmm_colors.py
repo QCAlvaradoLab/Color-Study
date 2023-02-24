@@ -306,8 +306,15 @@ class GMMColors(object):
 
         return output
 
+import argparse
+
+ap = argparse.ArgumentParser()
+ap.add_argument("config_path", help="Path to cfg file with dataset information", nargs="?", default="./resources/gaussians.cfg")
+args = ap.parse_args()
+
+cfg_path = args.config_path
+
 import configparser
-cfg_path = "./resources/gaussians.cfg"
 parser = configparser.RawConfigParser()
 
 with open(cfg_path, 'r') as f:
