@@ -13,6 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
+from . import dataset_splits
 
 
 from .fish_coco_annotator import get_alvaradolab_data
@@ -25,7 +26,8 @@ import traceback
 class FishDataset(Dataset):
 
     def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", 
-                    img_shape = 256, min_segment_positivity_ratio=0.0075, organs=["whole_body"]): 
+                    img_shape = 256, min_segment_positivity_ratio=0.0075, organs=["whole_body"],
+                    dataset_split="train"): 
         # min_segment_positivity_ratio is around 0.009 - 0.011 for eye (the smallest part)
         
         global composite_labels
@@ -61,7 +63,15 @@ class FishDataset(Dataset):
                                                         self.folder_path, 
                                                         img_shape, min_segment_positivity_ratio,
                                                         organs=organs) 
-                
+         
+                # create train, val or test sets
+                num_samples = {"train": [0, int(len(dataset) * dataset_splits["train"])]}
+                num_samples["val"] = [num_samples["train"][1], num_samples["train"][1] + int(len(dataset) * dataset_splits["val"])] 
+                num_samples["test"] = [num_samples["val"][1], num_samples["val"][1] + int(len(dataset) * dataset_splits["test"]) + 1]
+
+                indices = range(*num_samples[dataset_split])
+                dataset = torch.utils.data.Subset(dataset, indices)
+
                 if len(self.dataset_cumsum_lengths) == 0:
                     self.dataset_cumsum_lengths.append(len(dataset))
                 else:
@@ -102,8 +112,12 @@ if __name__ == "__main__":
     ap.add_argument("--visualize", default="alvaradolab", help="Flag to visualize composite labels")
     args = ap.parse_args()
 
-    dataset = FishDataset(dataset_type="segmentation/composite") #DataLoader(, 
-    #                        num_workers=1, batch_size=1)
+    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="train") 
+    print ("train", len(dataset))
+    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="val") 
+    print ("val", len(dataset))
+    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="test") 
+    print ("test", len(dataset))
 
     for data in dataset:
         image, segment = data

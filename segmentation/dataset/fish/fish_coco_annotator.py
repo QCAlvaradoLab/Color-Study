@@ -8,15 +8,17 @@ import glob
 import cv2
 import numpy as np
 
+from random import shuffle
+
 from torch.utils.data import Dataset
 
-from . import composite_labels
+from . import composite_labels, dataset_splits
 
-import tracemalloc
+#import tracemalloc
 
 class CocoSegmentationDataset(Dataset):
     
-    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, organs=None, ann_format="xyxy"):
+    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, organs=None, split="train", ann_format="xyxy"):
         
         global composite_labels
         
@@ -71,7 +73,7 @@ class CocoSegmentationDataset(Dataset):
             del self.image_paths[del_idx]
         
         assert len(self.image_paths) == len(self.polygons)
-    
+
     def __len__(self):
         return len(self.image_paths)
 
