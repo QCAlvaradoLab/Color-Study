@@ -46,17 +46,16 @@ class VGGUNetDecoder(nn.Module):
 
         assert len(channels) == len(upsample) 
 
-        #channels.append(out_channels)
         channels.insert(0, channels[0])
 
         self.channel_blocks = nn.ModuleList([
                                 DeconvNormActivation(
-                                        channels[idx] if idx!=1 or not upsample[idx] else channels[idx]*2, 
+                                        channels[idx] if not upsample[idx] else channels[idx] + channels[idx+1], 
                                         channels[idx+1], 
                                         kernel_size=3, 
                                         stride=1, 
                                         padding=1,
-                                        num_blocks = 0 if idx==0 else 2) \
+                                        num_blocks = 1 if idx==0 else 2) \
                                     for idx in range(len(channels)-1)])
 
         self.conv_blocks = nn.ModuleList([
@@ -74,17 +73,18 @@ class VGGUNetDecoder(nn.Module):
         self.upsample = upsample
     
     def forward(self, x, encoder_tensors):
-           
-        for index, (block1, block2, encoder_tensor) in \
-            enumerate(zip(self.channel_blocks, self.conv_blocks, reversed(encoder_tensors))):
+        
+        encoder_concat_index = 0
+
+        for index, (block1, block2) in \
+            enumerate(zip(self.channel_blocks, self.conv_blocks)):
 
             if self.upsample[index]:
                 x = F.interpolate(x, scale_factor=2)   
-                x = torch.cat((encoder_tensor, x), dim=1)
+                x = torch.cat((encoder_tensors[encoder_concat_index], x), dim=1)
+                encoder_concat_index += 1
             
-            print (x.shape, block1)
             x = block1(x)
-            print (x.shape, block2)
             x = block2(x)
             
         return self.final_conv(x)
@@ -110,7 +110,7 @@ class VGGUNetEncoder(nn.Module):
 
             x = layer(x)
 
-        return x, forward_blocks
+        return x, list(reversed(forward_blocks))
 
 class VGGUNet(nn.Module):
     
