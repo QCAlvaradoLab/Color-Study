@@ -18,18 +18,21 @@ from . import composite_labels, dataset_splits
 
 class CocoSegmentationDataset(Dataset):
     
-    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, organs=None, split="train", ann_format="xyxy"):
+    def __init__(self, coco_images, coco_txt, img_shape, min_segment_positivity_ratio=0.05, organs=None, sample_dataset=True, ann_format="xyxy"):
         
         global composite_labels
         
         assert ann_format in ["xywh", "xyxy"] and len(coco_images) == len(coco_txt)
+        
+        if sample_dataset:
+            coco_images, coco_txt = coco_images[:30], coco_txt[:30]
         
         self.organs = organs
         self.img_shape = img_shape
         self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.image_paths = coco_images
         self.polygons = []
-
+        
         deletion_indices = []
         for index, (image_path, objects_file) in enumerate(zip(coco_images, coco_txt)):
             
@@ -71,6 +74,7 @@ class CocoSegmentationDataset(Dataset):
 
         for del_idx in reversed(deletion_indices):
             del self.image_paths[del_idx]
+            del self.polygons[del_idx]
         
         assert len(self.image_paths) == len(self.polygons)
 
@@ -102,7 +106,7 @@ class CocoSegmentationDataset(Dataset):
              
         return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, organs=None):
+def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, sample_dataset=True, organs=None):
     
     #tracemalloc.start()
     assert dtype == "segmentation/composite"
@@ -119,7 +123,7 @@ def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positi
         del images[idx]
         del labels[idx]
 
-    dataset = CocoSegmentationDataset(images, labels, img_shape, min_segment_positivity_ratio, organs=organs)
+    dataset = CocoSegmentationDataset(images, labels, img_shape, min_segment_positivity_ratio, sample_dataset=sample_dataset, organs=organs)
     print ("Using %d labeled images from dataset: %s!" % (len(dataset), "COCO Segmentation: %s" % path))
     
     """

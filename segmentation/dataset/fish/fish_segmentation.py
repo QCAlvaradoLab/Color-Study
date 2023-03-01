@@ -20,8 +20,11 @@ def imread(file_path):
 
 class SegmentationDataset(Dataset):
 
-    def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio, organs=None): 
+    def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio, sample_dataset = True, organs=None): 
         
+        if sample_dataset:
+            segmentation_data = {key: segmentation_data[key] for key in list(segmentation_data)[:30]}
+
         self.segmentation_data = segmentation_data
         self.segmentation_keys = list(segmentation_data.keys())
         self.img_shape = img_shape 
@@ -64,7 +67,7 @@ class SegmentationDataset(Dataset):
         
         return image.transpose((2,0,1)), segment_array.transpose((2,0,1))
 
-def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, organs=None):
+def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_positivity_ratio, sample_dataset=True, organs=None):
     
     #TODO: 9 missing images from dataset!
 
@@ -110,7 +113,7 @@ def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_po
                 data[data_index] = {"image": image_path, \
                                     "segments": segment_paths}
 
-    print ("Using %d labeled images from dataset: %s!" % (len(data), "Segmentation dataset: %s" % path))
-    dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio, organs=organs)
+    dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio, sample_dataset=sample_dataset, organs=organs)
+    print ("Using %d labeled images from dataset: %s!" % (len(dataset), "Segmentation dataset: %s" % path))
     
     return dataset

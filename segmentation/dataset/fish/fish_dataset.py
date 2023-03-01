@@ -15,7 +15,6 @@ from . import display_composite_annotations
 from . import colors, CPARTS, DATASET_TYPES
 from . import dataset_splits
 
-
 from .fish_coco_annotator import get_alvaradolab_data
 from .fish_segmentation import get_ml_training_set_data
 
@@ -27,7 +26,7 @@ class FishDataset(Dataset):
 
     def __init__(self, dataset_type="segmentation", config_file = "resources/config.json", 
                     img_shape = 256, min_segment_positivity_ratio=0.0075, organs=["whole_body"],
-                    dataset_split="train"): 
+                    sample_dataset=True): 
         # min_segment_positivity_ratio is around 0.009 - 0.011 for eye (the smallest part)
         
         global composite_labels
@@ -63,27 +62,27 @@ class FishDataset(Dataset):
                 dataset = getattr(self, dataset_method)(data["type"], data["folder"],
                                                         self.folder_path, 
                                                         img_shape, min_segment_positivity_ratio,
-                                                        organs=organs) 
+                                                        organs = organs,
+                                                        sample_dataset = sample_dataset) 
          
                 # create train, val or test sets
                 num_samples = {"train": [0, int(len(dataset) * dataset_splits["train"])]}
                 num_samples["val"] = [num_samples["train"][1], num_samples["train"][1] + int(len(dataset) * dataset_splits["val"])] 
                 num_samples["test"] = [num_samples["val"][1], num_samples["val"][1] + int(len(dataset) * dataset_splits["test"]) + 1]
-
-                indices = range(*num_samples["train"])
                 
+                indices = range(*num_samples["train"])
+                self.datasets.append(torch.utils.data.Subset(dataset, indices))
+               
+                if len(self.dataset_cumsum_lengths) == 0:
+                    self.dataset_cumsum_lengths.append(len(indices))
+                else:
+                    self.dataset_cumsum_lengths.append(self.dataset_cumsum_lengths[-1] + len(indices))
+
                 indices = range(*num_samples["val"])
                 self.val_datasets.append(torch.utils.data.Subset(dataset, indices))
                 indices = range(*num_samples["test"])
                 self.test_datasets.append(torch.utils.data.Subset(dataset, indices))
-                
-                if len(self.dataset_cumsum_lengths) == 0:
-                    self.dataset_cumsum_lengths.append(len(dataset))
-                else:
-                    self.dataset_cumsum_lengths.append(self.dataset_cumsum_lengths[-1] + len(dataset))
-
-                self.datasets.append(torch.utils.data.Subset(dataset, indices))
-            
+ 
             except Exception as e:
                 traceback.print_exc()
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
