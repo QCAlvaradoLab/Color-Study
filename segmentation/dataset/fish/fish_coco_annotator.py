@@ -25,7 +25,7 @@ class CocoSegmentationDataset(Dataset):
         assert ann_format in ["xywh", "xyxy"] and len(coco_images) == len(coco_txt)
         
         if sample_dataset:
-            coco_images, coco_txt = coco_images[:30], coco_txt[:30]
+            coco_images, coco_txt = coco_images[:20], coco_txt[:20]
         
         self.organs = organs
         self.img_shape = img_shape

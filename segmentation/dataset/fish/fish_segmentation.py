@@ -23,7 +23,7 @@ class SegmentationDataset(Dataset):
     def __init__(self, segmentation_data, img_shape, min_segment_positivity_ratio, sample_dataset = True, organs=None): 
         
         if sample_dataset:
-            segmentation_data = {key: segmentation_data[key] for key in list(segmentation_data)[:30]}
+            segmentation_data = {key: segmentation_data[key] for key in list(segmentation_data)[:20]}
 
         self.segmentation_data = segmentation_data
         self.segmentation_keys = list(segmentation_data.keys())
