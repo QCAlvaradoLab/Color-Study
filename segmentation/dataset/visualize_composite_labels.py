@@ -79,6 +79,8 @@ def display_composite_annotations(image, labels_map, composite_labels, min_posit
                         ), image)
         cv2.waitKey()
         
+        print ("\n", "."*50, "\n")
+
         image = image_copy
 
     cv2.destroyAllWindows()

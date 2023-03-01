@@ -163,19 +163,16 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     dataset = FishDataset(dataset_type="segmentation/composite") 
-    print ("train", len(dataset))
+    print ("train dataset: %d images" % len(dataset))
 
     val_datasets, val_cumsum_lengths, \
     test_datasets, test_cumsum_lengths = dataset.return_val_test_datasets()
-    
-    print (val_datasets, val_cumsum_lengths, test_datasets, test_cumsum_lengths)
 
     valdataset = FishSubsetDataset(val_datasets, val_cumsum_lengths) 
-    print ("val", len(valdataset))
+    print ("val dataset: %d images" % len(valdataset))
     testdataset = FishSubsetDataset(test_datasets, test_cumsum_lengths) 
-    print ("test", len(testdataset))
+    print ("test dataset: %d images" % len(testdataset))
 
     for data in testdataset:
         image, segment = data
-        print (image.shape, segment.shape)
         display_composite_annotations(image, segment, composite_labels, dataset.min_segment_positivity_ratio)
