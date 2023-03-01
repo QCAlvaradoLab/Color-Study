@@ -54,6 +54,7 @@ class FishDataset(Dataset):
         self.get_ml_training_set_data = get_ml_training_set_data
         
         self.datasets, self.dataset_cumsum_lengths = [], []
+        self.val_datasets, self.test_datasets = [], []
         for data in datasets:
             
             dataset_method = "get_%s_data" % data["name"]
@@ -69,7 +70,7 @@ class FishDataset(Dataset):
                 num_samples["val"] = [num_samples["train"][1], num_samples["train"][1] + int(len(dataset) * dataset_splits["val"])] 
                 num_samples["test"] = [num_samples["val"][1], num_samples["val"][1] + int(len(dataset) * dataset_splits["test"]) + 1]
 
-                indices = range(*num_samples[dataset_split])
+                indices = range(*num_samples["train"])
                 dataset = torch.utils.data.Subset(dataset, indices)
 
                 if len(self.dataset_cumsum_lengths) == 0:
