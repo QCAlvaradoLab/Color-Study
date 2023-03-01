@@ -120,7 +120,7 @@ def get_alvaradolab_data(dtype, path, folder_path, img_shape, min_segment_positi
         del labels[idx]
 
     dataset = CocoSegmentationDataset(images, labels, img_shape, min_segment_positivity_ratio, organs=organs)
-    print ("Using %d labeled images!" % len(dataset))
+    print ("Using %d labeled images from dataset: %s!" % (len(dataset), "COCO Segmentation: %s" % path))
     
     """
     print("index: ", index, [x / 1e6 for x in tracemalloc.get_traced_memory()], "MB")

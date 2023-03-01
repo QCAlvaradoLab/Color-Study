@@ -110,7 +110,7 @@ def get_ml_training_set_data(dtype, path, folder_path, img_shape, min_segment_po
                 data[data_index] = {"image": image_path, \
                                     "segments": segment_paths}
 
-    print ("Using %d labeled images!" % len(data))
+    print ("Using %d labeled images from dataset: %s!" % (len(data), "Segmentation dataset: %s" % path))
     dataset = SegmentationDataset(data, img_shape, min_segment_positivity_ratio, organs=organs)
     
     return dataset
