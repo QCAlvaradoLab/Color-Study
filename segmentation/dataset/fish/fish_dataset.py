@@ -71,20 +71,41 @@ class FishDataset(Dataset):
                 num_samples["test"] = [num_samples["val"][1], num_samples["val"][1] + int(len(dataset) * dataset_splits["test"]) + 1]
 
                 indices = range(*num_samples["train"])
-                dataset = torch.utils.data.Subset(dataset, indices)
-
+                
+                indices = range(*num_samples["val"])
+                self.val_datasets.append(torch.utils.data.Subset(dataset, indices))
+                indices = range(*num_samples["test"])
+                self.test_datasets.append(torch.utils.data.Subset(dataset, indices))
+                
                 if len(self.dataset_cumsum_lengths) == 0:
                     self.dataset_cumsum_lengths.append(len(dataset))
                 else:
                     self.dataset_cumsum_lengths.append(self.dataset_cumsum_lengths[-1] + len(dataset))
 
-                self.datasets.append(dataset)
+                self.datasets.append(torch.utils.data.Subset(dataset, indices))
             
             except Exception as e:
                 traceback.print_exc()
                 print ("Write generator function for dataset: %s ;" % dataset_method, e)
         
         self.current_dataset_id = 0
+
+    def return_val_test_datasets(self):
+        
+        val_cumsum_lengths, test_cumsum_lengths = [], []
+        for dataset in self.val_datasets:
+            if len(val_cumsum_lengths) == 0:
+                val_cumsum_lengths.append(len(dataset))
+            else:
+                val_cumsum_lengths.append(val_cumsum_lengths[-1] + len(dataset))
+        for dataset in self.test_datasets:
+            if len(test_cumsum_lengths) == 0:
+                test_cumsum_lengths.append(len(dataset))
+            else:
+                test_cumsum_lengths.append(test_cumsum_lengths[-1] + len(dataset))
+
+        return self.val_datasets, val_cumsum_lengths, \
+               self.test_datasets, test_cumsum_lengths
 
     def __len__(self):
         return self.dataset_cumsum_lengths[-1]
@@ -105,6 +126,34 @@ class FishDataset(Dataset):
         
         return dataset[data_index]
 
+class FishSubsetDataset(Dataset):
+    
+    def __init__(self, datasets, cumsum_lengths):
+        
+        self.datasets = datasets
+        self.dataset_cumsum_lengths = cumsum_lengths
+        
+        self.current_dataset_id = 0
+
+    def __len__(self):
+        return self.dataset_cumsum_lengths[-1]
+
+    def __getitem__(self, idx):
+    
+        while idx > self.dataset_cumsum_lengths[self.current_dataset_id]:
+            self.current_dataset_id += 1
+
+        dataset = self.datasets[self.current_dataset_id]
+
+        if self.current_dataset_id == 0:
+            prev_id = 0
+        else:
+            prev_id = self.current_dataset_id - 1
+
+        data_index = idx - (self.dataset_cumsum_lengths[self.current_dataset_id] - self.dataset_cumsum_lengths[prev_id])
+
+        return dataset[data_index]
+
 if __name__ == "__main__":
    
     from . import composite_labels 
@@ -113,13 +162,20 @@ if __name__ == "__main__":
     ap.add_argument("--visualize", default="alvaradolab", help="Flag to visualize composite labels")
     args = ap.parse_args()
 
-    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="train") 
+    dataset = FishDataset(dataset_type="segmentation/composite") 
     print ("train", len(dataset))
-    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="val") 
-    print ("val", len(dataset))
-    dataset = FishDataset(dataset_type="segmentation/composite", dataset_split="test") 
-    print ("test", len(dataset))
 
-    for data in dataset:
+    val_datasets, val_cumsum_lengths, \
+    test_datasets, test_cumsum_lengths = dataset.return_val_test_datasets()
+    
+    print (val_datasets, val_cumsum_lengths, test_datasets, test_cumsum_lengths)
+
+    valdataset = FishSubsetDataset(val_datasets, val_cumsum_lengths) 
+    print ("val", len(valdataset))
+    testdataset = FishSubsetDataset(test_datasets, test_cumsum_lengths) 
+    print ("test", len(testdataset))
+
+    for data in testdataset:
         image, segment = data
+        print (image.shape, segment.shape)
         display_composite_annotations(image, segment, composite_labels, dataset.min_segment_positivity_ratio)
