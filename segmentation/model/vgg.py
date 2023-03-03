@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torchsummary import summary
 
-from torchvision.models import vgg19_bn
+from torchvision.models import vgg19_bn, VGG19_BN_Weights
 
 class DeconvNormActivation(nn.Module):
     

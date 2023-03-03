@@ -20,4 +20,9 @@ print ("test dataset: %d images" % len(fish_test_dataset))
 
 dataset_subsets = ["fish_train_dataset", "fish_val_dataset", "fish_test_dataset"]
 
+#for data in fish_test_dataset:
+#    image, segment = data
+#    display_composite_annotations(image, segment, composite_labels, fish_test_dataset.min_segment_positivity_ratio)
+#exit()
+
 __all__ = [*dataset_subsets, "composite_labels", "test_set_ratio", "visualize_composite_labels", "colors", "CPARTS", "DATASET_TYPES"]

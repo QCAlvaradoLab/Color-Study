@@ -123,12 +123,14 @@ class FishDataset(Dataset):
 
         data_index = idx - (self.dataset_cumsum_lengths[self.current_dataset_id] - self.dataset_cumsum_lengths[prev_id])
         
-        return dataset[data_index]
+        image, segment = dataset[data_index]
+        return image / 255.0, segment / 255.0  
 
 class FishSubsetDataset(Dataset):
     
-    def __init__(self, datasets, cumsum_lengths):
+    def __init__(self, datasets, cumsum_lengths, min_segment_positivity_ratio=0.0075):
         
+        self.min_segment_positivity_ratio = min_segment_positivity_ratio
         self.datasets = datasets
         self.dataset_cumsum_lengths = cumsum_lengths
         
@@ -150,8 +152,10 @@ class FishSubsetDataset(Dataset):
             prev_id = self.current_dataset_id - 1
 
         data_index = idx - (self.dataset_cumsum_lengths[self.current_dataset_id] - self.dataset_cumsum_lengths[prev_id])
-
-        return dataset[data_index]
+        
+        image, segment = dataset[data_index]
+        print (image.min(), image.max(), segment.min(), segment.max())
+        return image / 255.0, segment / 255.0  
 
 if __name__ == "__main__":
    
@@ -172,6 +176,4 @@ if __name__ == "__main__":
     testdataset = FishSubsetDataset(test_datasets, test_cumsum_lengths) 
     print ("test dataset: %d images" % len(testdataset))
 
-    for data in testdataset:
-        image, segment = data
-        display_composite_annotations(image, segment, composite_labels, dataset.min_segment_positivity_ratio)
+
